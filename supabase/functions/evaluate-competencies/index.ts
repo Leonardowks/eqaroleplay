@@ -46,7 +46,7 @@ function calculateVoiceMetrics(messages: any[]) {
   };
 }
 
-// Função para gerar insights com IA
+// Função para gerar insights com IA (mantida para compatibilidade)
 async function generateInsights(evaluations: any[], conversation: string, overallScore: number, apiKey: string) {
   const insightPrompt = `Com base na análise de competências SPIN Selling a seguir, gere insights estruturados:
 
@@ -100,6 +100,137 @@ Seja específico, direto e focado em automação com IA.`;
       highlights: ['Participação ativa na conversa'],
       recommendations: ['Continue praticando suas habilidades SPIN']
     };
+  }
+}
+
+// Função para gerar recomendações estruturadas com IA
+async function generateStructuredRecommendations(
+  evaluations: any[], 
+  conversation: string, 
+  overallScore: number, 
+  sessionId: string,
+  apiKey: string,
+  supabase: any
+) {
+  const recommendationsPrompt = `Analise as competências avaliadas e gere recomendações ESTRUTURADAS e PRIORIZADAS para melhoria.
+
+SCORE GERAL: ${overallScore}/100
+
+COMPETÊNCIAS AVALIADAS:
+${evaluations.map(e => `- ${e.competency}: ${e.score}/100\n  ${e.feedback}`).join('\n\n')}
+
+Gere um JSON array com 4-6 recomendações seguindo EXATAMENTE esta estrutura:
+
+[
+  {
+    "recommendation_type": "tactical",
+    "priority": "high",
+    "title": "Implementar perguntas de quantificação",
+    "description": "Nas próximas 3 conversas, adicione perguntas que quantifiquem o problema do cliente em termos de tempo, dinheiro ou recursos.",
+    "action_items": [
+      "Pergunte: 'Quantas horas por semana sua equipe gasta nisso?'",
+      "Explore: 'Qual o custo mensal desse processo manual?'",
+      "Mapeie: 'Quantas pessoas estão envolvidas nessa tarefa?'"
+    ],
+    "related_competency": "Perguntas de Situação",
+    "expected_impact": "+20% em descoberta de valor quantificável",
+    "time_to_implement": "Próximas 3 conversas"
+  },
+  {
+    "recommendation_type": "strategic",
+    "priority": "high",
+    "title": "Desenvolver biblioteca de casos de sucesso",
+    "description": "Compile 5 casos de sucesso do seu setor com métricas específicas para usar na abertura e durante objeções.",
+    "action_items": [
+      "Listar 5 clientes com resultados mensuráveis",
+      "Documentar: problema inicial, solução implementada, resultados em %",
+      "Criar roteiro de 30 segundos para cada case"
+    ],
+    "related_competency": "Abertura",
+    "expected_impact": "+30% em credibilidade técnica",
+    "time_to_implement": "1 semana"
+  },
+  {
+    "recommendation_type": "behavioral",
+    "priority": "medium",
+    "title": "Praticar escuta ativa com pausa de 3 segundos",
+    "description": "Desenvolva o hábito de esperar 3 segundos após o cliente terminar de falar antes de responder. Isso demonstra consideração e evita interrupções.",
+    "action_items": [
+      "Conte mentalmente até 3 antes de responder",
+      "Use o tempo para processar o que foi dito",
+      "Reformule a preocupação do cliente antes de argumentar"
+    ],
+    "related_competency": "Tratamento de Objeções",
+    "expected_impact": "+25% em empatia percebida",
+    "time_to_implement": "Hábito de 21 dias"
+  }
+]
+
+REGRAS:
+- recommendation_type: "tactical" (ação imediata, próximas conversas), "strategic" (planejamento 1-4 semanas), "behavioral" (mudança de hábito longo prazo)
+- priority: "high" (score < 70 na competência), "medium" (score 70-85), "low" (aperfeiçoamento de score > 85)
+- action_items: 3-4 ações ESPECÍFICAS e MENSURÁVEIS
+- expected_impact: Usar % ou métricas concretas
+- time_to_implement: Ser realista ("imediato", "próximas 3 conversas", "1 semana", "21 dias", etc)
+- Focar nos 2-3 pontos MAIS FRACOS identificados
+- Ser ACIONÁVEL, não genérico ("melhorar comunicação" ❌ vs "perguntar X antes de Y" ✅)
+
+Gere 4-6 recomendações priorizadas por impacto.`;
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: 'Você é um especialista em coaching de vendas B2B. Retorne apenas JSON válido.' },
+        { role: 'user', content: recommendationsPrompt }
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    console.error('Failed to generate recommendations');
+    return [];
+  }
+
+  const aiResponse = await response.json();
+  const content = aiResponse.choices[0].message.content;
+  
+  try {
+    const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
+    const recommendations = JSON.parse(cleanContent);
+    
+    // Salvar recomendações no banco
+    const recommendationInserts = recommendations.map((rec: any) => ({
+      session_id: sessionId,
+      recommendation_type: rec.recommendation_type,
+      priority: rec.priority,
+      title: rec.title,
+      description: rec.description,
+      action_items: rec.action_items,
+      related_competency: rec.related_competency,
+      expected_impact: rec.expected_impact,
+      time_to_implement: rec.time_to_implement
+    }));
+
+    const { error: insertError } = await supabase
+      .from('session_recommendations')
+      .insert(recommendationInserts);
+
+    if (insertError) {
+      console.error('Error inserting recommendations:', insertError);
+      return [];
+    }
+
+    console.log(`Generated ${recommendations.length} structured recommendations`);
+    return recommendations;
+  } catch (error) {
+    console.error('Error parsing recommendations:', error);
+    return [];
   }
 }
 
@@ -406,8 +537,18 @@ ${conversation}`;
     // Calcular métricas vocais
     const voiceMetrics = calculateVoiceMetrics(messages);
 
-    // Gerar insights com IA
+    // Gerar insights com IA (mantido para retrocompatibilidade)
     const insights = await generateInsights(evaluations, conversation, overallScore, LOVABLE_API_KEY);
+
+    // Gerar recomendações estruturadas (nova funcionalidade)
+    await generateStructuredRecommendations(
+      evaluations,
+      conversation,
+      overallScore,
+      sessionId,
+      LOVABLE_API_KEY,
+      supabase
+    );
 
     // Atualizar sessão com overall_score, voice_metrics e insights
     const { error: updateError } = await supabase
