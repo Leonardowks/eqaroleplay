@@ -505,13 +505,29 @@ ${conversation}`;
       throw new Error('Invalid evaluation format from AI');
     }
 
+    // Mapear nomes de competências para spin_category válidos
+    const competencyToSpinCategory: Record<string, string> = {
+      'Abertura': 'opening',
+      'Perguntas de Situação': 'situation',
+      'Descoberta de Situação': 'situation',
+      'Perguntas de Problema': 'problem',
+      'Identificação de Problemas': 'problem',
+      'Perguntas de Implicação': 'implication',
+      'Amplificação de Implicações': 'implication',
+      'Perguntas de Necessidade-Benefício': 'need_payoff',
+      'Apresentação de Valor': 'need_payoff',
+      'Tratamento de Objeções': 'objection_handling',
+      'Gestão de Objeções': 'objection_handling',
+      'Fechamento': 'closing'
+    };
+
     // Salvar competências no banco (converter scores de 0-100 para 0-10)
     const competencyInserts = evaluations.map((comp: any) => ({
       session_id: sessionId,
       competency_name: comp.competency,
       score: Math.round(comp.score / 10), // Convert 0-100 to 0-10
       feedback: comp.feedback,
-      spin_category: comp.spin_category || null,
+      spin_category: competencyToSpinCategory[comp.competency] || null,
       sub_scores: comp.sub_scores ? Object.fromEntries(
         Object.entries(comp.sub_scores).map(([k, v]) => [k, Math.round(Number(v) / 10)]) // Convert 0-100 to 0-10
       ) : null,
