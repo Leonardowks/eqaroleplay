@@ -134,7 +134,17 @@ Mantenha o papel consistente durante toda a conversa.`;
         "Authorization": `Bearer ${openAIKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify({
+        session: {
+          type: "realtime",
+          model: "gpt-4o-realtime-preview-2024-12-17",
+          audio: {
+            output: {
+              voice: selectedVoice,
+            },
+          },
+        },
+      }),
     });
 
     if (!tokenResponse.ok) {
@@ -144,7 +154,7 @@ Mantenha o papel consistente durante toda a conversa.`;
     }
 
     const tokenData = await tokenResponse.json();
-    ephemeralKey = tokenData.client_secret.value;
+    ephemeralKey = tokenData.value;
     console.log(`[${sessionId}] ✅ Step 3: Ephemeral token obtained`);
   } catch (error) {
     console.error(`[${sessionId}] ❌ Error getting ephemeral token:`, error);
