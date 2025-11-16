@@ -13,6 +13,7 @@ import SPINEvolutionChart from '@/components/SPINEvolutionChart';
 import CompetencyHeatmap from '@/components/CompetencyHeatmap';
 import KPICards from '@/components/KPICards';
 import { generatePerformanceReport } from '@/utils/pdfGenerator';
+import { generateTechnicalDocumentation } from '@/utils/technicalDocGenerator';
 import { FileText, Download } from 'lucide-react';
 
 // Lazy load chart component to reduce initial bundle
@@ -392,23 +393,33 @@ const Dashboard = () => {
               Acompanhe seu progresso e desempenho
             </p>
           </div>
-          <Button 
-            onClick={handleGenerateReport} 
-            disabled={generatingReport || stats.totalSessions === 0}
-            className="gap-2"
-          >
-            {generatingReport ? (
-              <>
-                <Download className="h-4 w-4 animate-spin" />
-                Gerando...
-              </>
-            ) : (
-              <>
-                <FileText className="h-4 w-4" />
-                Gerar Relatório PDF
-              </>
-            )}
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button 
+              onClick={handleGenerateReport} 
+              disabled={generatingReport || stats.totalSessions === 0}
+              className="gap-2"
+            >
+              {generatingReport ? (
+                <>
+                  <Download className="h-4 w-4 animate-spin" />
+                  Gerando...
+                </>
+              ) : (
+                <>
+                  <FileText className="h-4 w-4" />
+                  Relatório de Performance
+                </>
+              )}
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => generateTechnicalDocumentation()}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Documentação Técnica
+            </Button>
+          </div>
         </div>
 
         {/* KPI Cards */}
