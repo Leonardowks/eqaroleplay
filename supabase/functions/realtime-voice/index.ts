@@ -269,6 +269,25 @@ LEMBRE-SE: Você está em uma CONVERSA POR VOZ. Fale naturalmente como falaria a
         return;
       }
       
+      // Validate message type before forwarding to OpenAI
+      const validTypes = [
+        'session.update',
+        'input_audio_buffer.append',
+        'input_audio_buffer.commit',
+        'input_audio_buffer.clear',
+        'conversation.item.create',
+        'conversation.item.truncate',
+        'conversation.item.delete',
+        'conversation.item.retrieve',
+        'response.create',
+        'response.cancel'
+      ];
+      
+      if (!validTypes.includes(data.type)) {
+        console.log(`[${sessionId}] Ignoring unsupported message type: ${data.type}`);
+        return;
+      }
+      
       // Forward to OpenAI if connected
       if (openAISocket && openAISocket.readyState === WebSocket.OPEN) {
         openAISocket.send(event.data);
