@@ -15,10 +15,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { AudioRecorder, encodeAudioForAPI, AudioQueue } from "@/utils/RealtimeAudio";
+import { triggerHaptic, triggerSuccessHaptic, triggerErrorHaptic } from "@/utils/haptics";
 import { Mic, MicOff, PhoneOff, Volume2, ArrowLeft, Clock, Wifi, WifiOff } from "lucide-react";
 import Header from "@/components/Header";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import SessionSummaryModal from "@/components/SessionSummaryModal";
+import { cn } from "@/lib/utils";
 
 interface Message {
   role: "user" | "assistant";
@@ -36,6 +38,7 @@ const VoiceChat = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [sessionId, setSessionId] = useState<string>("");
   const [personaId, setPersonaId] = useState<string>("");
@@ -46,6 +49,8 @@ const VoiceChat = () => {
   const [connectionAttempts, setConnectionAttempts] = useState(0);
   const [showSummary, setShowSummary] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [audioInitialized, setAudioInitialized] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const recorderRef = useRef<AudioRecorder | null>(null);
@@ -107,6 +112,46 @@ const VoiceChat = () => {
 
   // WebSocket connection stays alive naturally through audio communication
   // No need for manual heartbeat pings
+
+  // Detect iOS/Safari and log mobile info
+  useEffect(() => {
+    const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    setIsIOS(iOS);
+    
+    // Log mobile debug info
+    console.log('=== Mobile Debug Info ===');
+    console.log('User Agent:', navigator.userAgent);
+    console.log('Platform:', navigator.platform);
+    console.log('iOS:', iOS);
+    console.log('Safari:', /Safari/.test(navigator.userAgent));
+    console.log('AudioContext support:', 'AudioContext' in window);
+    console.log('AudioWorklet support:', 'AudioWorkletNode' in window);
+    console.log('MediaDevices support:', 'mediaDevices' in navigator);
+    console.log('===');
+  }, []);
+
+  // Lock orientation to portrait on mobile
+  useEffect(() => {
+    if ('orientation' in screen && 'lock' in (screen as any).orientation) {
+      try {
+        (screen as any).orientation.lock('portrait').catch(() => {
+          console.log('Orientation lock not supported');
+        });
+      } catch (e) {
+        console.log('Orientation lock failed');
+      }
+    }
+
+    return () => {
+      if ('orientation' in screen && 'unlock' in (screen as any).orientation) {
+        try {
+          (screen as any).orientation.unlock();
+        } catch (e) {
+          console.log('Orientation unlock failed');
+        }
+      }
+    };
+  }, []);
 
   // Check for inactivity and auto-end session after 30 minutes
   useEffect(() => {
@@ -234,17 +279,50 @@ const VoiceChat = () => {
     setSessionId(sessionData.id);
     setSessionStartTime(new Date(sessionData.started_at));
     
+    // On iOS/Safari, we need user interaction to initialize audio
+    // This will be handled by the UI button shown only on iOS
+    if (!isIOS) {
+      setAudioInitialized(true);
+    }
+    
     // Request microphone permission
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      await connectWebSocket(sessionData.id, state.personaId, state.meetingType);
+      if (!isIOS || audioInitialized) {
+        await connectWebSocket(sessionData.id, state.personaId, state.meetingType);
+      }
     } catch (error) {
+      triggerErrorHaptic();
       toast({
         title: "Permissão Negada",
         description: "É necessário permitir o acesso ao microfone",
         variant: "destructive",
       });
       navigate("/roleplay");
+    }
+  };
+
+  const initializeAudio = async () => {
+    try {
+      // Create and resume AudioContext with user gesture (Safari requirement)
+      const testContext = new AudioContext();
+      await testContext.resume();
+      await testContext.close();
+      setAudioInitialized(true);
+      triggerSuccessHaptic();
+      
+      // Now connect websocket
+      if (sessionId && personaId && meetingType) {
+        await connectWebSocket(sessionId, personaId, meetingType);
+      }
+    } catch (error) {
+      console.error('Failed to initialize audio:', error);
+      triggerErrorHaptic();
+      toast({
+        title: "Erro",
+        description: "Falha ao inicializar áudio",
+        variant: "destructive",
+      });
     }
   };
 
@@ -273,6 +351,7 @@ const VoiceChat = () => {
         setIsConnected(true);
         setConnectionAttempts(0); // Reset on successful connection
         isReconnectingRef.current = false;
+        triggerHaptic('medium'); // Haptic feedback on connection
         startRecording();
         
         toast({
@@ -295,6 +374,14 @@ const VoiceChat = () => {
         lastActivityRef.current = Date.now();
 
         if (data.type === "response.audio.delta") {
+          // Add natural delay before first audio chunk for more natural feel
+          if (!isSpeaking) {
+            setIsProcessing(true);
+            await new Promise(resolve => setTimeout(resolve, 300));
+            setIsProcessing(false);
+            triggerHaptic('light'); // Subtle haptic when AI starts speaking
+          }
+          
           setIsSpeaking(true);
           const binaryString = atob(data.delta);
           const bytes = new Uint8Array(binaryString.length);
@@ -434,6 +521,7 @@ const VoiceChat = () => {
 
     console.log("Ending session:", sessionId);
     isSessionEndedRef.current = true;
+    triggerHaptic('heavy'); // Strong haptic feedback on session end
     
     try {
       // Send end signal to backend before closing
@@ -534,36 +622,58 @@ const VoiceChat = () => {
             <p className="text-muted-foreground capitalize">{meetingType.replace("_", " ")}</p>
           </div>
 
-          {/* Status Visual */}
+          {/* Status Visual - Maior no mobile */}
           <div className="flex flex-col items-center justify-center space-y-6 mb-8">
-            <div className={`w-32 h-32 rounded-full flex items-center justify-center transition-all ${
+            <div className={cn(
+              "rounded-full flex items-center justify-center transition-all",
+              // Mobile: 160x160px, Desktop: 128x128px
+              "w-40 h-40 md:w-32 md:h-32",
               isSpeaking 
                 ? "bg-primary animate-pulse shadow-lg shadow-primary/50" 
                 : isRecording 
                 ? "bg-secondary animate-pulse" 
                 : "bg-muted"
-            }`}>
+            )}>
               {isSpeaking ? (
-                <Volume2 className="w-16 h-16 text-primary-foreground" />
+                <Volume2 className="w-20 h-20 md:w-16 md:h-16 text-primary-foreground" />
               ) : isRecording ? (
-                <Mic className="w-16 h-16 text-secondary-foreground" />
+                <Mic className="w-20 h-20 md:w-16 md:h-16 text-secondary-foreground" />
               ) : (
-                <MicOff className="w-16 h-16 text-muted-foreground" />
+                <MicOff className="w-20 h-20 md:w-16 md:h-16 text-muted-foreground" />
               )}
             </div>
 
-            <div className="text-center">
+            {/* Status indicators with better mobile visibility */}
+            <div className="text-center min-h-[60px] flex items-center justify-center">
               {isSpeaking && (
-                <p className="text-lg font-medium text-primary">
-                  {personaName} está falando...
-                </p>
+                <div className="flex flex-col items-center gap-2">
+                  <div className="flex gap-1">
+                    <div className="w-1 h-8 bg-primary animate-pulse rounded" style={{animationDelay: '0ms'}} />
+                    <div className="w-1 h-8 bg-primary animate-pulse rounded" style={{animationDelay: '150ms'}} />
+                    <div className="w-1 h-8 bg-primary animate-pulse rounded" style={{animationDelay: '300ms'}} />
+                  </div>
+                  <p className="text-lg font-medium text-primary">
+                    {personaName} está falando...
+                  </p>
+                </div>
               )}
-              {!isSpeaking && isRecording && (
-                <p className="text-lg font-medium text-secondary">
-                  Você pode falar...
-                </p>
+              {!isSpeaking && isRecording && !isProcessing && (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                  <p className="text-lg font-medium text-secondary">
+                    Ouvindo...
+                  </p>
+                </div>
               )}
-              {!isConnected && (
+              {isProcessing && (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+                  <p className="text-lg font-medium text-muted-foreground">
+                    Pensando...
+                  </p>
+                </div>
+              )}
+              {!isConnected && !isProcessing && (
                 <p className="text-lg font-medium text-muted-foreground">
                   Conectando...
                 </p>
@@ -592,20 +702,36 @@ const VoiceChat = () => {
             </div>
           )}
 
-          {/* End Button */}
+          {/* End Button - Maior no mobile */}
           <div className="flex justify-center">
             <Button
               onClick={handleEndSession}
               variant="destructive"
               size="lg"
-              className="gap-2"
+              className="gap-2 min-w-[200px] min-h-[56px] text-lg touch-manipulation"
               disabled={isSessionEndedRef.current}
             >
-              <PhoneOff className="w-5 h-5" />
+              <PhoneOff className="w-6 h-6" />
               Finalizar Sessão
             </Button>
           </div>
         </div>
+
+        {/* iOS Audio Initialization Modal */}
+        {isIOS && !audioInitialized && sessionId && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+            <div className="bg-card p-8 rounded-lg text-center max-w-md w-full">
+              <Volume2 className="w-16 h-16 mx-auto mb-4 text-primary" />
+              <h2 className="text-2xl font-bold mb-4">Iniciar Áudio</h2>
+              <p className="text-muted-foreground mb-6">
+                Para garantir a melhor experiência no iOS, toque no botão abaixo para inicializar o áudio.
+              </p>
+              <Button onClick={initializeAudio} size="lg" className="w-full touch-manipulation">
+                Inicializar Áudio
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Tips */}
         <div className="mt-6 bg-card rounded-lg p-6">

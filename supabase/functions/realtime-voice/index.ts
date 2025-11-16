@@ -76,18 +76,24 @@ NÍVEL DE DIFICULDADE (${persona.difficulty}): ${difficultyDescriptions[persona.
 
 TIPO DE REUNIÃO (${meetingType}): ${meetingInstructions[meetingType as keyof typeof meetingInstructions]}
 
-INSTRUÇÕES IMPORTANTES:
+INSTRUÇÕES CRÍTICAS PARA CONVERSAÇÃO NATURAL:
 - Responda SEMPRE em português brasileiro
-- Mantenha respostas naturais e conversacionais (2-4 frases)
-- Use o contexto da sua empresa e setor nas respostas
-- Seja consistente com seu nível de dificuldade
+- Mantenha respostas CURTAS: 1-2 frases no máximo
+- Use linguagem EXTREMAMENTE natural, como telefone
+- NÃO use pontos de exclamação excessivos
+- Adicione pausas naturais com "então...", "veja bem...", "bom..."
+- Demonstre hesitação natural: "hmm...", "deixa eu pensar..."
 - NÃO repita informações já discutidas
-- Faça objeções realistas baseadas no seu perfil
-- Use linguagem natural, como em uma conversa real por telefone
-- Evite respostas muito longas - seja direto
-- Demonstre emoções adequadas (ceticismo, entusiasmo, preocupação)
+- Responda de forma CONVERSACIONAL, não formal
+- Use contrações: "tá", "né", "pra", "cê"
+- Faça uma pergunta por resposta, no máximo
 
-LEMBRE-SE: Você está em uma CONVERSA POR VOZ. Fale naturalmente como falaria ao telefone.`;
+RITMO DE CONVERSA:
+- Simule pensamento natural antes de respostas complexas
+- Use interjeições: "ah", "hum", "entendi"
+- Seja direto e objetivo
+
+LEMBRE-SE: Esta é uma CONVERSA POR VOZ. Seja CONCISO e NATURAL como em um telefonema real.`;
 
   // Get ephemeral token from OpenAI
   console.log("Requesting ephemeral token from OpenAI...");
@@ -111,12 +117,12 @@ LEMBRE-SE: Você está em uma CONVERSA POR VOZ. Fale naturalmente como falaria a
         },
         turn_detection: {
           type: "server_vad",
-          threshold: 0.5,
-          prefix_padding_ms: 300,
-          silence_duration_ms: 1000
+          threshold: 0.4,              // Menos sensível para evitar cortes
+          prefix_padding_ms: 500,      // Mais padding para capturar início
+          silence_duration_ms: 1200    // Mais tempo antes de detectar fim
         },
-        temperature: 0.8,
-        max_response_output_tokens: 4096
+        temperature: 0.9,               // Mais criativo
+        max_response_output_tokens: 150 // Limitar para respostas curtas
       }),
     });
 
