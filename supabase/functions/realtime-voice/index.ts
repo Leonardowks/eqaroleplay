@@ -158,8 +158,12 @@ Mantenha o papel consistente durante toda a conversa.`;
 
     const tokenData = await tokenResponse.json();
     ephemeralKey = tokenData.value;
-    console.log(`[${sessionId}] ✅ Step 3: Ephemeral token obtained with full config`);
-    console.log(`[${sessionId}] 📋 Config: voice=${selectedVoice}, VAD enabled, pcm16 format`);
+    console.log(`[${sessionId}] ✅ Step 3: Ephemeral token obtained successfully`);
+    console.log(`[${sessionId}] 📋 Token structure:`, JSON.stringify({
+      hasValue: !!ephemeralKey,
+      voice: selectedVoice,
+      config: 'minimal (type, model, voice only)'
+    }, null, 2));
   } catch (error) {
     console.error(`[${sessionId}] ❌ Error getting ephemeral token:`, error);
     return new Response("Failed to initialize OpenAI session", { status: 500 });
@@ -217,8 +221,11 @@ Mantenha o papel consistente durante toda a conversa.`;
   openAISocket.onmessage = async (event) => {
     try {
       const data = JSON.parse(event.data);
+      
+      // Log ALL events for debugging
+      console.log(`[${sessionId}] 📨 Received event: ${data.type}`);
 
-      // Log critical events only
+      // Log critical events with details
       if (data.type === "session.created") {
         console.log(`[${sessionId}] 🎯 Session created, sending full configuration...`);
         console.log(`[${sessionId}] 📋 Session config from ephemeral token:`, JSON.stringify({
@@ -277,6 +284,8 @@ Mantenha o papel consistente durante toda a conversa.`;
 
         while (retryCount < maxRetries && !saved) {
           try {
+            console.log(`[${sessionId}] 💾 Saving user message (attempt ${retryCount + 1}/${maxRetries})...`);
+            
             const { error: msgError } = await supabase.from("session_messages").insert({
               session_id: sessionId,
               role: "user",
@@ -284,17 +293,30 @@ Mantenha o papel consistente durante toda a conversa.`;
             });
 
             if (msgError) {
-              console.error(`[${sessionId}] ❌ Error saving user message (attempt ${retryCount + 1}/${maxRetries}):`, msgError);
+              console.error(`[${sessionId}] ❌ Error saving user message:`, {
+                attempt: retryCount + 1,
+                maxRetries,
+                error: msgError,
+                sessionId,
+                transcript: data.transcript.substring(0, 50) + '...'
+              });
               retryCount++;
               if (retryCount < maxRetries) {
                 await new Promise(resolve => setTimeout(resolve, 300 * retryCount));
               }
             } else {
-              console.log(`[${sessionId}] ✅ User message saved successfully`);
+              console.log(`[${sessionId}] ✅ User message saved:`, {
+                length: data.transcript.length,
+                preview: data.transcript.substring(0, 50) + '...'
+              });
               saved = true;
             }
           } catch (err) {
-            console.error(`[${sessionId}] ❌ Exception saving user message (attempt ${retryCount + 1}):`, err);
+            console.error(`[${sessionId}] ❌ Exception saving user message:`, {
+              attempt: retryCount + 1,
+              error: err,
+              sessionId
+            });
             retryCount++;
             if (retryCount < maxRetries) {
               await new Promise(resolve => setTimeout(resolve, 300 * retryCount));
@@ -303,7 +325,10 @@ Mantenha o papel consistente durante toda a conversa.`;
         }
 
         if (!saved) {
-          console.error(`[${sessionId}] 🚨 CRITICAL: Failed to save user message after ${maxRetries} attempts`);
+          console.error(`[${sessionId}] 🚨 CRITICAL: Failed to save user message after ${maxRetries} attempts`, {
+            transcript: data.transcript,
+            sessionId
+          });
         }
       } else if (data.type === "response.audio_transcript.done") {
         console.log(`[${sessionId}] 📝 Full AI transcript: "${data.transcript}"`);
@@ -316,6 +341,8 @@ Mantenha o papel consistente durante toda a conversa.`;
 
           while (retryCount < maxRetries && !saved) {
             try {
+              console.log(`[${sessionId}] 💾 Saving assistant message (attempt ${retryCount + 1}/${maxRetries})...`);
+              
               const { error: msgError } = await supabase.from("session_messages").insert({
                 session_id: sessionId,
                 role: "assistant",
@@ -323,17 +350,30 @@ Mantenha o papel consistente durante toda a conversa.`;
               });
 
               if (msgError) {
-                console.error(`[${sessionId}] ❌ Error saving assistant message (attempt ${retryCount + 1}/${maxRetries}):`, msgError);
+                console.error(`[${sessionId}] ❌ Error saving assistant message:`, {
+                  attempt: retryCount + 1,
+                  maxRetries,
+                  error: msgError,
+                  sessionId,
+                  transcript: data.transcript.substring(0, 50) + '...'
+                });
                 retryCount++;
                 if (retryCount < maxRetries) {
                   await new Promise(resolve => setTimeout(resolve, 300 * retryCount));
                 }
               } else {
-                console.log(`[${sessionId}] ✅ Assistant message saved successfully`);
+                console.log(`[${sessionId}] ✅ Assistant message saved:`, {
+                  length: data.transcript.length,
+                  preview: data.transcript.substring(0, 50) + '...'
+                });
                 saved = true;
               }
             } catch (err) {
-              console.error(`[${sessionId}] ❌ Exception saving assistant message (attempt ${retryCount + 1}):`, err);
+              console.error(`[${sessionId}] ❌ Exception saving assistant message:`, {
+                attempt: retryCount + 1,
+                error: err,
+                sessionId
+              });
               retryCount++;
               if (retryCount < maxRetries) {
                 await new Promise(resolve => setTimeout(resolve, 300 * retryCount));
@@ -342,7 +382,10 @@ Mantenha o papel consistente durante toda a conversa.`;
           }
 
           if (!saved) {
-            console.error(`[${sessionId}] 🚨 CRITICAL: Failed to save assistant message after ${maxRetries} attempts`);
+            console.error(`[${sessionId}] 🚨 CRITICAL: Failed to save assistant message after ${maxRetries} attempts`, {
+              transcript: data.transcript,
+              sessionId
+            });
           }
         }
       } else if (data.type === "error") {
