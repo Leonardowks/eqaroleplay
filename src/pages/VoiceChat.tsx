@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -359,12 +359,12 @@ const VoiceChat = () => {
     }
   };
 
-  const stopRecording = () => {
+  const stopRecording = useCallback(() => {
     recorderRef.current?.stop();
     setIsRecording(false);
-  };
+  }, []);
 
-  const handleEndSession = async () => {
+  const handleEndSession = useCallback(async () => {
     try {
       if (wsRef.current) {
         wsRef.current.close();
@@ -406,7 +406,7 @@ const VoiceChat = () => {
     }
 
     setShowSummary(true);
-  };
+  }, [sessionId, sessionStartTime]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

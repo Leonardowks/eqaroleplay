@@ -1,19 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
 import { Card } from '@/components/ui/card';
 import { Trophy, Clock, Target, TrendingUp, Play } from 'lucide-react';
-import {
-  Radar,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  ResponsiveContainer,
-} from 'recharts';
+import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+// Lazy load chart component to reduce initial bundle
+const CompetencyChart = lazy(() => import('@/components/CompetencyChart'));
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -62,6 +58,12 @@ const Dashboard = () => {
       .eq('status', 'completed');
 
     if (sessions) {
+      // Get recent sessions
+      const recent = sessions
+        .sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime())
+        .slice(0, 5);
+      setRecentSessions(recent);
+      
       const totalSessions = sessions.length;
       const avgDuration = sessions.reduce((acc, s) => acc + (s.duration_seconds || 0), 0) / totalSessions || 0;
       const avgScore = sessions.reduce((acc, s) => acc + (s.overall_score || 0), 0) / totalSessions || 0;
@@ -72,12 +74,6 @@ const Dashboard = () => {
         avgScore: parseFloat(avgScore.toFixed(1)),
         evolution: 12.5, // Mocked for now
       });
-
-      // Get recent sessions
-      const recent = sessions
-        .sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime())
-        .slice(0, 5);
-      setRecentSessions(recent);
     }
 
     // Load competency scores
@@ -101,15 +97,16 @@ const Dashboard = () => {
     setCompetencyData(mockData);
   };
 
-  const getMeetingTypeLabel = (type: string) => {
+  // Memoize meeting type labels for better performance
+  const getMeetingTypeLabel = useMemo(() => {
     const labels: Record<string, string> = {
       prospection: 'Prospecção',
       discovery: 'Descoberta',
       presentation: 'Apresentação',
       negotiation: 'Negociação',
     };
-    return labels[type] || type;
-  };
+    return (type: string) => labels[type] || type;
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -173,24 +170,15 @@ const Dashboard = () => {
           {/* Radar Chart */}
           <Card className="p-4 sm:p-6 bg-card border-border">
             <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Competências</h3>
-            <ResponsiveContainer width="100%" height={300} className="sm:h-[400px]">
-              <RadarChart data={competencyData}>
-                <PolarGrid stroke="hsl(var(--border))" />
-                <PolarAngleAxis
-                  dataKey="competency"
-                  tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }}
-                  className="sm:text-xs"
-                />
-                <PolarRadiusAxis angle={90} domain={[0, 10]} />
-                <Radar
-                  name="Score"
-                  dataKey="score"
-                  stroke="hsl(var(--primary))"
-                  fill="hsl(var(--primary))"
-                  fillOpacity={0.6}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
+            <div className="h-[300px] sm:h-[400px]">
+              <Suspense fallback={
+                <div className="flex items-center justify-center h-full">
+                  <Skeleton className="w-full h-full" />
+                </div>
+              }>
+                <CompetencyChart data={competencyData} />
+              </Suspense>
+            </div>
           </Card>
 
           {/* Recent sessions */}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,17 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Preload critical pages when user is likely to use them
+  useEffect(() => {
+    // Preload dashboard and roleplay pages after a short delay
+    const timer = setTimeout(() => {
+      import('./Dashboard');
+      import('./Roleplay');
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
