@@ -128,8 +128,8 @@ Mantenha o papel consistente durante toda a conversa.`;
   
   let ephemeralKey: string;
   try {
-    console.log(`[${sessionId}] 🎯 Step 3: Requesting ephemeral token with minimal configuration...`);
-    console.log(`[${sessionId}] 📋 Ephemeral token format: type=realtime, model=gpt-4o-realtime-preview-2024-12-17, voice=${selectedVoice}`);
+    console.log(`[${sessionId}] 🎯 Step 3: Requesting ephemeral token with full configuration...`);
+    console.log(`[${sessionId}] 📋 Ephemeral token format: model=gpt-4o-realtime-preview-2024-12-17, voice=${selectedVoice}`);
     
     const tokenResponse = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
       method: "POST",
@@ -138,15 +138,23 @@ Mantenha o papel consistente durante toda a conversa.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        session: {
-          type: "realtime",
-          model: "gpt-4o-realtime-preview-2024-12-17",
-          audio: {
-            output: {
-              voice: selectedVoice,
-            },
-          },
+        model: "gpt-4o-realtime-preview-2024-12-17",
+        voice: selectedVoice,
+        instructions: systemPrompt,
+        modalities: ["text", "audio"],
+        input_audio_format: "pcm16",
+        output_audio_format: "pcm16",
+        input_audio_transcription: {
+          model: "whisper-1"
         },
+        turn_detection: {
+          type: "server_vad",
+          threshold: 0.5,
+          prefix_padding_ms: 600,
+          silence_duration_ms: 1500
+        },
+        temperature: 0.9,
+        max_response_output_tokens: 150
       }),
     });
 
@@ -157,12 +165,15 @@ Mantenha o papel consistente durante toda a conversa.`;
     }
 
     const tokenData = await tokenResponse.json();
-    ephemeralKey = tokenData.value;
+    ephemeralKey = tokenData.client_secret?.value || tokenData.value;
     console.log(`[${sessionId}] ✅ Step 3: Ephemeral token obtained successfully`);
-    console.log(`[${sessionId}] 📋 Token structure:`, JSON.stringify({
+    console.log(`[${sessionId}] 📋 Token response structure:`, JSON.stringify({
       hasValue: !!ephemeralKey,
-      voice: selectedVoice,
-      config: 'minimal (type, model, voice only)'
+      hasClientSecret: !!tokenData.client_secret,
+      model: tokenData.model,
+      voice: tokenData.voice,
+      modalities: tokenData.modalities,
+      fullConfigIncluded: true
     }, null, 2));
   } catch (error) {
     console.error(`[${sessionId}] ❌ Error getting ephemeral token:`, error);
