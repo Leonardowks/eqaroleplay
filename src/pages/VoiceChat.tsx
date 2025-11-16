@@ -52,6 +52,8 @@ const VoiceChat = () => {
   const audioQueueRef = useRef<AudioQueue | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const isReconnectingRef = useRef(false);
+  const lastActivityRef = useRef<number>(Date.now());
+  const activityCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -65,6 +67,9 @@ const VoiceChat = () => {
         audioQueueRef.current?.clear();
         if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
           audioContextRef.current.close();
+        }
+        if (activityCheckIntervalRef.current) {
+          clearInterval(activityCheckIntervalRef.current);
         }
       } catch (error) {
         console.error("Error during cleanup:", error);
@@ -116,6 +121,36 @@ const VoiceChat = () => {
 
     return () => clearInterval(heartbeatInterval);
   }, [isConnected]);
+
+  // Check for inactivity and auto-end session after 30 minutes
+  useEffect(() => {
+    if (!isConnected || !sessionId) return;
+
+    // Update activity on any message
+    lastActivityRef.current = Date.now();
+
+    // Check activity every minute
+    activityCheckIntervalRef.current = setInterval(() => {
+      const inactiveTime = Date.now() - lastActivityRef.current;
+      const thirtyMinutes = 30 * 60 * 1000;
+
+      if (inactiveTime > thirtyMinutes) {
+        console.log('Session inactive for 30 minutes - auto-ending');
+        toast({
+          title: "Sessão Encerrada",
+          description: "Sua sessão foi encerrada devido à inatividade.",
+          variant: "destructive",
+        });
+        handleEndSession();
+      }
+    }, 60000); // Check every minute
+
+    return () => {
+      if (activityCheckIntervalRef.current) {
+        clearInterval(activityCheckIntervalRef.current);
+      }
+    };
+  }, [isConnected, sessionId]);
 
   useEffect(() => {
     checkUser();

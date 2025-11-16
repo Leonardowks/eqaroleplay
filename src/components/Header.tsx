@@ -41,6 +41,7 @@ const Header = ({ userName = 'Usuário', userAvatar }: HeaderProps) => {
   const navItems = [
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/roleplay', label: 'Roleplay' },
+    { path: '/active-sessions', label: 'Sessões Ativas' },
     { path: '/history', label: 'Histórico' },
     { path: '/ranking', label: 'Ranking' },
   ];
