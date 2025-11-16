@@ -225,6 +225,7 @@ Mantenha o papel consistente durante toda a conversa.`;
               type: "session.update",
               session: {
                 modalities: ["text", "audio"],
+                type: "realtime",
                 instructions: systemPrompt,
                 voice: selectedVoice,
                 input_audio_format: "pcm16",
