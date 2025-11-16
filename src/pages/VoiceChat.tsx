@@ -328,19 +328,38 @@ const VoiceChat = () => {
 
   const connectWebSocket = async (sessionId: string, personaId: string, meetingType: string) => {
     try {
-      // Clean up previous resources if they exist
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        await audioContextRef.current.close();
+      // ✅ Only close if necessary
+      if (audioContextRef.current) {
+        if (audioContextRef.current.state === 'closed') {
+          audioContextRef.current = null; // Need to create new
+        } else {
+          // Reuse existing context
+          console.log('♻️ Reusing existing AudioContext');
+          await audioContextRef.current.resume();
+        }
       }
+      
       if (recorderRef.current) {
         recorderRef.current.stop();
         recorderRef.current = null;
       }
       audioQueueRef.current?.clear();
 
-      // Initialize new audio context and queue
-      audioContextRef.current = new AudioContext({ sampleRate: 24000 });
+      // Only create new if doesn't exist
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext({ sampleRate: 24000 });
+      }
+      
       audioQueueRef.current = new AudioQueue(audioContextRef.current);
+      
+      // ✅ Monitor AudioContext state
+      audioQueueRef.current.monitorAudioContext(() => {
+        toast({
+          title: "⚠️ Áudio Pausado",
+          description: "Reativando reprodução de áudio...",
+          duration: 2000,
+        });
+      });
 
       const wsUrl = `wss://wzronlqzkxqzohugajvz.supabase.co/functions/v1/realtime-voice?sessionId=${sessionId}&personaId=${personaId}&meetingType=${meetingType}`;
       
@@ -353,6 +372,36 @@ const VoiceChat = () => {
         isReconnectingRef.current = false;
         triggerHaptic('medium'); // Haptic feedback on connection
         startRecording();
+        
+        // ✅ Setup heartbeat to detect inactivity
+        if (activityCheckIntervalRef.current) {
+          clearInterval(activityCheckIntervalRef.current);
+        }
+        
+        activityCheckIntervalRef.current = setInterval(() => {
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            const timeSinceLastActivity = Date.now() - lastActivityRef.current;
+            
+            if (timeSinceLastActivity > 10000) { // 10 seconds without activity
+              console.warn('⚠️ No activity detected for 10s, checking connection...');
+              
+              // Send ping to verify connection is alive
+              wsRef.current.send(JSON.stringify({
+                type: 'ping',
+                timestamp: Date.now()
+              }));
+              
+              // If no response in 5s, reconnect
+              setTimeout(() => {
+                const timeSinceCheck = Date.now() - lastActivityRef.current;
+                if (timeSinceCheck > 15000) {
+                  console.error('❌ Connection appears dead, reconnecting...');
+                  wsRef.current?.close();
+                }
+              }, 5000);
+            }
+          }
+        }, 5000); // Check every 5 seconds
         
         toast({
           title: "Conectado",

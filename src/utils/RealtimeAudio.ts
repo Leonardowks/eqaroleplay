@@ -206,6 +206,18 @@ export class AudioQueue {
     const audioData = this.queue.shift()!;
 
     try {
+      // ✅ Check and resume AudioContext if suspended
+      if (this.audioContext.state === 'suspended') {
+        console.warn('⚠️ AudioContext suspended, resuming...');
+        await this.audioContext.resume();
+        console.log('✅ AudioContext resumed successfully');
+      }
+
+      // Verify state after resuming
+      if (this.audioContext.state !== 'running') {
+        throw new Error(`AudioContext in invalid state: ${this.audioContext.state}`);
+      }
+
       const wavData = createWavFromPCM(audioData);
       const arrayBuffer = new ArrayBuffer(wavData.buffer.byteLength);
       new Uint8Array(arrayBuffer).set(new Uint8Array(wavData.buffer));
@@ -218,9 +230,33 @@ export class AudioQueue {
       source.onended = () => this.playNext();
       source.start(0);
     } catch (error) {
-      console.error("Error playing audio:", error);
+      console.error("❌ Error playing audio:", error);
+      
+      // ✅ Attempt to recover AudioContext
+      if (this.audioContext.state === 'suspended') {
+        console.log('🔄 Attempting to recover suspended AudioContext...');
+        try {
+          await this.audioContext.resume();
+          // Re-add chunk to queue to retry
+          this.queue.unshift(audioData);
+        } catch (resumeError) {
+          console.error('❌ Failed to resume AudioContext:', resumeError);
+        }
+      }
+      
       this.playNext();
     }
+  }
+
+  // Monitor AudioContext state continuously
+  public monitorAudioContext(onSuspended: () => void) {
+    setInterval(() => {
+      if (this.audioContext.state === 'suspended') {
+        console.warn('⚠️ AudioContext suspended detected by monitor');
+        onSuspended();
+        this.audioContext.resume();
+      }
+    }, 2000); // Check every 2 seconds
   }
 
   clear() {
