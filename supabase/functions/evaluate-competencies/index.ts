@@ -221,7 +221,7 @@ REGRAS DE AVALIAÇÃO:
 - Forneça 3-4 sugestões práticas específicas por competência
 - Para cada sub_score, forneça feedback específico de 5-10 palavras em "sub_scores_feedback"
 
-Retorne um JSON array EXATAMENTE neste formato:
+Retorne um JSON array com TODAS as 7 competências EXATAMENTE neste formato:
 [
   {
     "competency": "Abertura e Rapport",
@@ -245,8 +245,33 @@ Retorne um JSON array EXATAMENTE neste formato:
       "Pergunte: 'O que seria um resultado ideal para você hoje?'"
     ],
     "spin_category": "opening"
+  },
+  {
+    "competency": "Descoberta de Situação",
+    "score": 75,
+    "sub_scores": {
+      "mapeamento_processos": 80,
+      "volume_escala": 70,
+      "contexto_tecnologico": 75,
+      "stakeholders": 75
+    },
+    "sub_scores_feedback": {
+      "mapeamento_processos": "Bom mapeamento inicial dos processos atuais",
+      "volume_escala": "Poderia quantificar melhor tempo e volume",
+      "contexto_tecnologico": "Explorou ferramentas mas faltou profundidade",
+      "stakeholders": "Identificou decisores mas não mapeou influenciadores"
+    },
+    "feedback": "Boa descoberta de situação com perguntas relevantes sobre processos atuais.",
+    "ai_suggestions": [
+      "Pergunte: 'Quantas horas por semana sua equipe dedica a isso?'",
+      "Explore: 'Quais sistemas vocês usam hoje e como eles se integram?'",
+      "Mapeie: 'Além de você, quem mais precisa aprovar essa decisão?'"
+    ],
+    "spin_category": "situation"
   }
 ]
+
+IMPORTANTE: Gere TODAS as 7 competências com sub_scores e sub_scores_feedback completos.
 
 CONVERSA:
 ${conversation}`;
@@ -317,6 +342,7 @@ ${conversation}`;
       feedback: comp.feedback,
       spin_category: comp.spin_category || null,
       sub_scores: comp.sub_scores || null,
+      sub_scores_feedback: comp.sub_scores_feedback || null,
       ai_suggestions: comp.ai_suggestions || null,
     }));
 

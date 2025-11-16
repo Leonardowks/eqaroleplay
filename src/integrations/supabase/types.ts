@@ -25,6 +25,7 @@ export type Database = {
           session_id: string
           spin_category: string | null
           sub_scores: Json | null
+          sub_scores_feedback: Json | null
         }
         Insert: {
           ai_suggestions?: Json | null
@@ -36,6 +37,7 @@ export type Database = {
           session_id: string
           spin_category?: string | null
           sub_scores?: Json | null
+          sub_scores_feedback?: Json | null
         }
         Update: {
           ai_suggestions?: Json | null
@@ -47,6 +49,7 @@ export type Database = {
           session_id?: string
           spin_category?: string | null
           sub_scores?: Json | null
+          sub_scores_feedback?: Json | null
         }
         Relationships: [
           {
