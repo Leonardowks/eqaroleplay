@@ -128,7 +128,7 @@ Mantenha o papel consistente durante toda a conversa.`;
   
   let ephemeralKey: string;
   try {
-    const tokenResponse = await fetch("https://api.openai.com/v1/realtime/sessions", {
+    const tokenResponse = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${openAIKey}`,
