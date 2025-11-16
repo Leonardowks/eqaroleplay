@@ -126,25 +126,41 @@ const Dashboard = () => {
       });
     }
 
-    // Load competency scores
-    const competencies = [
-      'Descoberta de Processos',
-      'Identificação de Dor',
-      'Apresentação de Valor',
-      'Técnicas de IA',
-      'Gestão de Objeções',
-      'Proposta Comercial',
-      'Fechamento',
-    ];
+    // Load competency scores from database
+    const { data: competencyScores } = await supabase
+      .from('competency_scores')
+      .select(`
+        competency_name,
+        score,
+        roleplay_sessions!inner (
+          user_id,
+          status
+        )
+      `)
+      .eq('roleplay_sessions.user_id', user.id)
+      .eq('roleplay_sessions.status', 'completed');
 
-    // Mock data for now
-    const mockData = competencies.map(name => ({
-      competency: name,
-      score: Math.random() * 10,
-      fullMark: 10,
-    }));
-    
-    setCompetencyData(mockData);
+    if (!competencyScores || competencyScores.length === 0) {
+      setCompetencyData([]);
+    } else {
+      // Group by competency_name and calculate average
+      const grouped = competencyScores.reduce((acc, item) => {
+        if (!acc[item.competency_name]) {
+          acc[item.competency_name] = [];
+        }
+        acc[item.competency_name].push(item.score);
+        return acc;
+      }, {} as Record<string, number[]>);
+
+      // Convert to chart format (scores are already 0-100, normalize to 0-10)
+      const chartData = Object.entries(grouped).map(([name, scores]) => ({
+        competency: name,
+        score: (scores.reduce((a, b) => a + b, 0) / scores.length) / 10,
+        fullMark: 10,
+      }));
+
+      setCompetencyData(chartData);
+    }
 
     // Load SPIN evolution data
     loadSpinEvolution();
@@ -420,15 +436,28 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">
           {/* Radar Chart */}
           <Card className="p-4 sm:p-6 bg-card border-border">
-            <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Competências</h3>
+            <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Competências SPIN</h3>
             <div className="h-[300px] sm:h-[400px]">
-              <Suspense fallback={
-                <div className="flex items-center justify-center h-full">
-                  <Skeleton className="w-full h-full" />
+              {competencyData.length > 0 ? (
+                <Suspense fallback={
+                  <div className="flex items-center justify-center h-full">
+                    <Skeleton className="w-full h-full" />
+                  </div>
+                }>
+                  <CompetencyChart data={competencyData} />
+                </Suspense>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center px-4">
+                  <Target className="h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground mb-4">
+                    Complete sua primeira sessão para visualizar suas competências
+                  </p>
+                  <Button onClick={() => navigate('/roleplay')}>
+                    <Play className="mr-2 h-4 w-4" />
+                    Iniciar Sessão
+                  </Button>
                 </div>
-              }>
-                <CompetencyChart data={competencyData} />
-              </Suspense>
+              )}
             </div>
           </Card>
 

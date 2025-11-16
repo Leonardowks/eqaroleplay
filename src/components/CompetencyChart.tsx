@@ -5,6 +5,7 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
   ResponsiveContainer,
+  Tooltip,
 } from 'recharts';
 
 interface CompetencyChartProps {
@@ -22,12 +23,21 @@ const CompetencyChart = ({ data }: CompetencyChartProps) => {
         <PolarGrid stroke="hsl(var(--border))" />
         <PolarAngleAxis 
           dataKey="competency" 
-          tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
+          tick={{ fill: 'hsl(var(--foreground))', fontSize: 11 }}
         />
         <PolarRadiusAxis 
           angle={90} 
           domain={[0, 10]}
-          tick={{ fill: 'hsl(var(--muted-foreground))' }}
+          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+        />
+        <Tooltip 
+          contentStyle={{
+            backgroundColor: 'hsl(var(--popover))',
+            border: '1px solid hsl(var(--border))',
+            borderRadius: '8px',
+            color: 'hsl(var(--popover-foreground))',
+          }}
+          formatter={(value: number) => [`${(value * 10).toFixed(1)}/100`, 'Score']}
         />
         <Radar
           name="Score"
