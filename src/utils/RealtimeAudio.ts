@@ -210,16 +210,51 @@ export const createWavFromPCM = (pcmData: Uint8Array): Uint8Array => {
   return wavArray;
 };
 
+export interface AudioQueueOptions {
+  sampleRate?: number;
+  bufferSize?: number;
+  latencyHint?: AudioContextLatencyCategory;
+  enableMetrics?: boolean;
+}
+
+export interface AudioQueueMetrics {
+  chunksPlayed: number;
+  totalLatency: number;
+  gaps: number;
+  errors: number;
+  avgDecodeTime: number;
+}
+
 export class AudioQueue {
   private audioContext: AudioContext;
   private nextStartTime: number = 0;
-  private readonly SAMPLE_RATE = 24000;
+  private readonly SAMPLE_RATE: number;
   private isPlaying: boolean = false;
   private activeSources: Set<AudioBufferSourceNode> = new Set();
+  private options: AudioQueueOptions;
+  private metrics: AudioQueueMetrics = {
+    chunksPlayed: 0,
+    totalLatency: 0,
+    gaps: 0,
+    errors: 0,
+    avgDecodeTime: 0,
+  };
 
-  constructor(audioContext: AudioContext) {
+  constructor(audioContext: AudioContext, options?: AudioQueueOptions) {
     this.audioContext = audioContext;
-    console.log('🎵 AudioQueue initialized with streaming scheduling');
+    this.options = {
+      sampleRate: options?.sampleRate || 24000,
+      bufferSize: options?.bufferSize || 4096,
+      latencyHint: options?.latencyHint || 'interactive',
+      enableMetrics: options?.enableMetrics ?? false, // Default disabled for backward compatibility
+    };
+    this.SAMPLE_RATE = this.options.sampleRate!;
+    
+    if (this.options.enableMetrics) {
+      console.log('[AudioQueue] Initialized with options:', this.options);
+    } else {
+      console.log('🎵 AudioQueue initialized with streaming scheduling');
+    }
   }
 
   /**
@@ -227,8 +262,11 @@ export class AudioQueue {
    * Aceita Uint8Array (PCM16) ou Float32Array
    */
   async addToQueue(audioData: Uint8Array | Float32Array): Promise<void> {
+    const startTime = performance.now();
+    
     if (!this.audioContext || this.audioContext.state === 'closed') {
       console.error('❌ AudioContext is closed');
+      this.metrics.errors++;
       return;
     }
 
@@ -267,7 +305,17 @@ export class AudioQueue {
 
       // Calcular quando iniciar este chunk (streaming scheduling)
       const currentTime = this.audioContext.currentTime;
-      const startTime = Math.max(currentTime, this.nextStartTime);
+      const safetyBuffer = this.options.enableMetrics ? 0.05 : 0; // 50ms safety buffer if metrics enabled
+      const startTime = Math.max(currentTime + safetyBuffer, this.nextStartTime);
+
+      // Check for gaps
+      if (this.nextStartTime > 0 && startTime > currentTime && this.options.enableMetrics) {
+        const gap = startTime - currentTime;
+        if (gap > 0.1) { // Gap > 100ms
+          this.metrics.gaps++;
+          console.warn('[AudioQueue] Large gap detected:', gap.toFixed(3), 's');
+        }
+      }
 
       // Reproduzir chunk
       source.start(startTime);
@@ -275,20 +323,46 @@ export class AudioQueue {
       // Atualizar próximo tempo de início (sem gaps)
       this.nextStartTime = startTime + audioBuffer.duration;
 
-      // Log apenas do primeiro chunk
-      if (!this.isPlaying) {
-        console.log('🎵 Audio streaming started');
-        this.isPlaying = true;
+      const processingTime = performance.now() - startTime;
+      
+      // Update metrics
+      if (this.options.enableMetrics) {
+        this.metrics.avgDecodeTime = 
+          (this.metrics.avgDecodeTime * this.metrics.chunksPlayed + processingTime) / 
+          (this.metrics.chunksPlayed + 1);
+        
+        console.log('[AudioQueue] Chunk playing', {
+          duration: `${audioBuffer.duration.toFixed(3)}s`,
+          startTime: `${startTime.toFixed(3)}s`,
+          currentTime: `${currentTime.toFixed(3)}s`,
+          gap: `${(startTime - currentTime).toFixed(3)}s`,
+          nextStart: `${this.nextStartTime.toFixed(3)}s`,
+          processingTime: `${processingTime.toFixed(2)}ms`,
+        });
       }
+
+      // Log apenas do primeiro chunk se metrics disabled
+      if (!this.isPlaying && !this.options.enableMetrics) {
+        console.log('🎵 Audio streaming started');
+      }
+      this.isPlaying = true;
 
       // Limpar source após reprodução
       source.onended = () => {
         source.disconnect();
         this.activeSources.delete(source);
+        this.metrics.chunksPlayed++;
       };
 
     } catch (error) {
       console.error('❌ Error playing audio chunk:', error);
+      this.metrics.errors++;
+      
+      // Auto-recovery: reset timing if too many errors
+      if (this.metrics.errors > 5) {
+        console.warn('[AudioQueue] Too many errors, resetting timing');
+        this.nextStartTime = 0;
+      }
     }
   }
 
@@ -296,7 +370,11 @@ export class AudioQueue {
    * Para toda reprodução e limpa recursos
    */
   async destroy(): Promise<void> {
-    console.log('🛑 Stopping audio queue...');
+    if (this.options.enableMetrics) {
+      console.log('[AudioQueue] Destroying... Final metrics:', this.metrics);
+    } else {
+      console.log('🛑 Stopping audio queue...');
+    }
     
     // Parar todos os sources ativos
     this.activeSources.forEach(source => {
@@ -312,6 +390,13 @@ export class AudioQueue {
     // Resetar estado
     this.nextStartTime = 0;
     this.isPlaying = false;
+    this.metrics = {
+      chunksPlayed: 0,
+      totalLatency: 0,
+      gaps: 0,
+      errors: 0,
+      avgDecodeTime: 0,
+    };
     
     // Fechar AudioContext
     if (this.audioContext && this.audioContext.state !== 'closed') {
@@ -327,6 +412,20 @@ export class AudioQueue {
    */
   getState(): AudioContextState {
     return this.audioContext?.state || 'closed';
+  }
+
+  /**
+   * Retorna métricas de performance
+   */
+  getMetrics(): AudioQueueMetrics {
+    return { ...this.metrics };
+  }
+
+  /**
+   * Retorna número de chunks na fila de reprodução
+   */
+  getQueueLength(): number {
+    return this.activeSources.size;
   }
 
   /**

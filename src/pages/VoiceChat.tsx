@@ -15,12 +15,19 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { AudioRecorder, encodeAudioForAPI, AudioQueue } from "@/utils/RealtimeAudio";
+import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { triggerHaptic, triggerSuccessHaptic, triggerErrorHaptic } from "@/utils/haptics";
-import { Mic, MicOff, PhoneOff, Volume2, ArrowLeft, Clock, Wifi, WifiOff } from "lucide-react";
+import { Mic, MicOff, PhoneOff, Volume2, ArrowLeft, Clock, Wifi, WifiOff, Activity } from "lucide-react";
 import Header from "@/components/Header";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import SessionSummaryModal from "@/components/SessionSummaryModal";
 import { cn } from "@/lib/utils";
+
+// Feature flag: usar novo sistema de áudio otimizado
+const USE_ENHANCED_AUDIO = import.meta.env.VITE_USE_ENHANCED_AUDIO === 'true';
+const AUDIO_SAMPLE_RATE = parseInt(import.meta.env.VITE_AUDIO_SAMPLE_RATE || '24000');
+const AUDIO_LATENCY_HINT = (import.meta.env.VITE_AUDIO_LATENCY_HINT || 'interactive') as AudioContextLatencyCategory;
+const ENABLE_AUDIO_METRICS = import.meta.env.DEV; // Metrics apenas em dev
 
 interface Message {
   role: "user" | "assistant";
@@ -60,6 +67,12 @@ const VoiceChat = () => {
   const lastActivityRef = useRef<number>(Date.now());
   const activityCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isSessionEndedRef = useRef(false);
+
+  // Enhanced audio player (se habilitado)
+  const enhancedAudio = USE_ENHANCED_AUDIO ? useAudioPlayer({
+    sampleRate: AUDIO_SAMPLE_RATE,
+    latencyHint: AUDIO_LATENCY_HINT,
+  }) : null;
 
   // Cleanup on unmount
   useEffect(() => {
@@ -369,23 +382,41 @@ const VoiceChat = () => {
         recorderRef.current.stop();
         recorderRef.current = null;
       }
-      audioQueueRef.current?.clear();
 
-      // Only create new if doesn't exist
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext({ sampleRate: 24000 });
+      // Limpar áudio anterior
+      if (USE_ENHANCED_AUDIO && enhancedAudio) {
+        enhancedAudio.clearQueue();
+      } else {
+        audioQueueRef.current?.clear();
       }
-      
-      audioQueueRef.current = new AudioQueue(audioContextRef.current);
-      
-      // ✅ Monitor AudioContext state
-      audioQueueRef.current.monitorAudioContext(() => {
-        toast({
-          title: "⚠️ Áudio Pausado",
-          description: "Reativando reprodução de áudio...",
-          duration: 2000,
+
+      // Setup audio system baseado no feature flag
+      if (USE_ENHANCED_AUDIO) {
+        console.log('🎵 Using enhanced audio system', { sampleRate: AUDIO_SAMPLE_RATE, latencyHint: AUDIO_LATENCY_HINT });
+        // Enhanced audio usa seu próprio AudioContext interno
+      } else {
+        // Only create new if doesn't exist (sistema legado)
+        if (!audioContextRef.current) {
+          audioContextRef.current = new AudioContext({ 
+            sampleRate: AUDIO_SAMPLE_RATE,
+            latencyHint: AUDIO_LATENCY_HINT,
+          });
+        }
+        
+        audioQueueRef.current = new AudioQueue(audioContextRef.current, {
+          sampleRate: AUDIO_SAMPLE_RATE,
+          enableMetrics: ENABLE_AUDIO_METRICS,
         });
-      });
+        
+        // ✅ Monitor AudioContext state
+        audioQueueRef.current.monitorAudioContext(() => {
+          toast({
+            title: "⚠️ Áudio Pausado",
+            description: "Reativando reprodução de áudio...",
+            duration: 2000,
+          });
+        });
+      }
 
       const wsUrl = `wss://wzronlqzkxqzohugajvz.supabase.co/functions/v1/realtime-voice?sessionId=${sessionId}&personaId=${personaId}&meetingType=${meetingType}`;
       
@@ -477,7 +508,13 @@ const VoiceChat = () => {
           for (let i = 0; i < binaryString.length; i++) {
             bytes[i] = binaryString.charCodeAt(i);
           }
-          await audioQueueRef.current?.addToQueue(bytes);
+          
+          // Use enhanced audio ou sistema legado baseado no feature flag
+          if (USE_ENHANCED_AUDIO && enhancedAudio) {
+            await enhancedAudio.enqueueAudio(bytes);
+          } else {
+            await audioQueueRef.current?.addToQueue(bytes);
+          }
         }
 
         if (data.type === "response.audio.done") {
@@ -927,6 +964,49 @@ const VoiceChat = () => {
                 </p>
               )}
             </div>
+
+            {/* Audio Metrics (Dev mode only) */}
+            {ENABLE_AUDIO_METRICS && isConnected && (
+              <div className="w-full max-w-md bg-muted/50 rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                  <Activity className="h-3 w-3" />
+                  <span>Audio Metrics {USE_ENHANCED_AUDIO && '(Enhanced)'}</span>
+                </div>
+                {USE_ENHANCED_AUDIO && enhancedAudio ? (
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between">
+                      <span>Buffer Status:</span>
+                      <Badge variant={
+                        enhancedAudio.bufferHealth === 'good' ? 'default' : 
+                        enhancedAudio.bufferHealth === 'warning' ? 'secondary' : 
+                        'destructive'
+                      } className="text-xs px-2 py-0">
+                        {enhancedAudio.bufferHealth}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Playing:</span>
+                      <span>{enhancedAudio.isPlaying ? '✅' : '⏸️'}</span>
+                    </div>
+                  </div>
+                ) : audioQueueRef.current && (
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between">
+                      <span>Chunks Played:</span>
+                      <span className="font-mono">{audioQueueRef.current.getMetrics().chunksPlayed}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Gaps Detected:</span>
+                      <span className="font-mono">{audioQueueRef.current.getMetrics().gaps}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Errors:</span>
+                      <span className="font-mono">{audioQueueRef.current.getMetrics().errors}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Transcriptions */}
