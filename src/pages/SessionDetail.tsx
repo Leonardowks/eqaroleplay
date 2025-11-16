@@ -12,6 +12,7 @@ import { ArrowLeft, Clock, Calendar, MessageSquare, TrendingUp, FileText, Target
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DetailedFeedback from '@/components/DetailedFeedback';
+import ActionPlanSection from '@/components/ActionPlanSection';
 
 interface Message {
   id: string;
@@ -28,6 +29,7 @@ interface Competency {
   spin_category?: string | null;
   sub_scores?: any;
   sub_scores_feedback?: any;
+  criterion_approvals?: any;
   ai_suggestions?: any;
 }
 
@@ -41,6 +43,7 @@ const SessionDetail = () => {
   const [session, setSession] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [competencies, setCompetencies] = useState<Competency[]>([]);
+  const [recommendations, setRecommendations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -108,6 +111,17 @@ const SessionDetail = () => {
 
     if (competenciesData) {
       setCompetencies(competenciesData);
+    }
+
+    // Buscar recomendações estruturadas
+    const { data: recommendationsData } = await supabase
+      .from('session_recommendations')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('priority', { ascending: true });
+
+    if (recommendationsData) {
+      setRecommendations(recommendationsData);
     }
 
     setLoading(false);
@@ -216,22 +230,33 @@ const SessionDetail = () => {
 
           {competencies.length > 0 && (
             <>
+              {/* Feedback Detalhado por Competência */}
               <div className="space-y-6">
                 <h2 className="text-2xl font-semibold">Avaliação Detalhada SPIN Selling</h2>
               <DetailedFeedback 
                 competencies={competencies.map(c => ({
                   competency: c.competency_name,
-                  score: c.score,
+                  score: c.score * 10, // Convert 0-10 to 0-100 for display
                   feedback: c.feedback || '',
-                  spin_category: c.spin_category,
-                  sub_scores: c.sub_scores,
+                  spin_category: c.spin_category || undefined,
+                  sub_scores: c.sub_scores ? Object.fromEntries(
+                    Object.entries(c.sub_scores).map(([k, v]) => [k, (v as number) * 10])
+                  ) : undefined,
                   sub_scores_feedback: c.sub_scores_feedback,
+                  criterion_approvals: c.criterion_approvals,
                   ai_suggestions: c.ai_suggestions
                 }))}
                 meetingType={session.meeting_type}
                 personaDifficulty={session.personas?.difficulty}
               />
               </div>
+
+              {/* Action Plan Section - Plano de Ação Estruturado */}
+              {recommendations.length > 0 && (
+                <div className="mt-8">
+                  <ActionPlanSection recommendations={recommendations} />
+                </div>
+              )}
 
               {/* Insights Section */}
               {(session.executive_summary || session.highlights || session.recommendations) && (

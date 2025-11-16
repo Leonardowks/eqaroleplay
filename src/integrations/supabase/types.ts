@@ -263,6 +263,56 @@ export type Database = {
           },
         ]
       }
+      session_recommendations: {
+        Row: {
+          action_items: Json
+          created_at: string | null
+          description: string
+          expected_impact: string | null
+          id: string
+          priority: string
+          recommendation_type: string
+          related_competency: string | null
+          session_id: string
+          time_to_implement: string | null
+          title: string
+        }
+        Insert: {
+          action_items?: Json
+          created_at?: string | null
+          description: string
+          expected_impact?: string | null
+          id?: string
+          priority: string
+          recommendation_type: string
+          related_competency?: string | null
+          session_id: string
+          time_to_implement?: string | null
+          title: string
+        }
+        Update: {
+          action_items?: Json
+          created_at?: string | null
+          description?: string
+          expected_impact?: string | null
+          id?: string
+          priority?: string
+          recommendation_type?: string
+          related_competency?: string | null
+          session_id?: string
+          time_to_implement?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_recommendations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "roleplay_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_achievements: {
         Row: {
           achievement_id: string
