@@ -51,6 +51,35 @@ const VoiceChat = () => {
   const recorderRef = useRef<AudioRecorder | null>(null);
   const audioQueueRef = useRef<AudioQueue | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const isReconnectingRef = useRef(false);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      console.log("Component unmounting - cleaning up resources");
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.close();
+      }
+      stopRecording();
+      audioQueueRef.current?.clear();
+      if (audioContextRef.current?.state !== 'closed') {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
+
+  // Warn before closing tab
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isConnected) {
+        e.preventDefault();
+        e.returnValue = 'Você tem uma sessão ativa. Deseja realmente sair?';
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isConnected]);
 
   useEffect(() => {
     checkUser();
@@ -100,6 +129,24 @@ const VoiceChat = () => {
       return;
     }
 
+    // Check for existing active voice sessions
+    const { data: activeSessions } = await supabase
+      .from("roleplay_sessions")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .eq("method", "voice");
+
+    if (activeSessions && activeSessions.length > 0) {
+      toast({
+        title: "Sessão Ativa Detectada",
+        description: "Você já possui uma sessão de voz ativa. Finalize-a primeiro.",
+        variant: "destructive",
+      });
+      navigate("/dashboard");
+      return;
+    }
+
     setPersonaId(state.personaId);
     setPersonaName(state.personaName || "Persona");
     setMeetingType(state.meetingType);
@@ -146,6 +193,17 @@ const VoiceChat = () => {
 
   const connectWebSocket = async (sessionId: string, personaId: string, meetingType: string) => {
     try {
+      // Clean up previous resources if they exist
+      if (audioContextRef.current?.state !== 'closed') {
+        await audioContextRef.current.close();
+      }
+      if (recorderRef.current) {
+        recorderRef.current.stop();
+        recorderRef.current = null;
+      }
+      audioQueueRef.current?.clear();
+
+      // Initialize new audio context and queue
       audioContextRef.current = new AudioContext({ sampleRate: 24000 });
       audioQueueRef.current = new AudioQueue(audioContextRef.current);
 
@@ -156,6 +214,8 @@ const VoiceChat = () => {
       wsRef.current.onopen = () => {
         console.log("WebSocket connected");
         setIsConnected(true);
+        setConnectionAttempts(0); // Reset on successful connection
+        isReconnectingRef.current = false;
         startRecording();
         
         toast({
@@ -241,13 +301,25 @@ const VoiceChat = () => {
         setIsConnected(false);
         stopRecording();
 
-        // Auto-retry até 3 tentativas
-        if (connectionAttempts < 3) {
+        // Only attempt reconnection if not already reconnecting and haven't exceeded attempts
+        if (connectionAttempts < 3 && !isReconnectingRef.current) {
+          isReconnectingRef.current = true;
+          console.log(`Attempting reconnection (${connectionAttempts + 1}/3)...`);
+          
           setTimeout(() => {
-            console.log(`Tentando reconectar... (${connectionAttempts + 1}/3)`);
             setConnectionAttempts(prev => prev + 1);
-            connectWebSocket(sessionId, personaId, meetingType);
+            connectWebSocket(sessionId, personaId, meetingType)
+              .catch((err) => {
+                console.error("Reconnection failed:", err);
+                isReconnectingRef.current = false;
+              });
           }, 2000);
+        } else if (connectionAttempts >= 3) {
+          toast({
+            title: "Conexão Perdida",
+            description: "Não foi possível reconectar. Por favor, tente novamente.",
+            variant: "destructive",
+          });
         }
       };
     } catch (error) {
