@@ -187,10 +187,16 @@ export class AudioQueue {
   }
 
   async addToQueue(audioData: Uint8Array) {
-    if (this.isPlaying && this.queue.length > 5) {
-      console.warn("⚠️ Audio queue is backing up - multiple audio sources may be active!");
+    // ✅ Limitar tamanho máximo da fila
+    const MAX_QUEUE_SIZE = 5;
+    
+    if (this.queue.length >= MAX_QUEUE_SIZE) {
+      console.warn('🗑️ Audio queue full, discarding oldest chunk');
+      this.queue.shift(); // Remove o chunk mais antigo
     }
+    
     this.queue.push(audioData);
+    
     if (!this.isPlaying) {
       await this.playNext();
     }
@@ -227,7 +233,15 @@ export class AudioQueue {
       source.buffer = audioBuffer;
       source.connect(this.audioContext.destination);
 
-      source.onended = () => this.playNext();
+      // ✅ Adicionar cleanup explícito após reprodução
+      source.onended = () => {
+        // Desconectar source para liberar memória
+        source.disconnect();
+        
+        // Delay reduzido para 20ms entre chunks (mais fluido)
+        setTimeout(() => this.playNext(), 20);
+      };
+      
       source.start(0);
     } catch (error) {
       console.error("❌ Error playing audio:", error);
@@ -244,7 +258,8 @@ export class AudioQueue {
         }
       }
       
-      this.playNext();
+      // Delay também no caso de erro
+      setTimeout(() => this.playNext(), 20);
     }
   }
 
@@ -261,5 +276,23 @@ export class AudioQueue {
 
   clear() {
     this.queue = [];
+  }
+
+  // ✅ Cleanup completo ao destruir a fila
+  public destroy() {
+    console.log('🧹 Cleaning up AudioQueue resources');
+    
+    // Limpar fila
+    this.queue = [];
+    
+    // Parar reprodução
+    this.isPlaying = false;
+    
+    // Fechar AudioContext se ainda estiver aberto
+    if (this.audioContext.state !== 'closed') {
+      this.audioContext.close().catch(err => {
+        console.warn('⚠️ Error closing AudioContext:', err);
+      });
+    }
   }
 }
