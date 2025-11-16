@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
 
@@ -29,6 +30,10 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const openAIKey = Deno.env.get("OPENAI_API_KEY")!;
+
+  if (!openAIKey) {
+    return new Response("OpenAI API key not configured", { status: 500 });
+  }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -84,37 +89,74 @@ INSTRUÇÕES IMPORTANTES:
 
 LEMBRE-SE: Você está em uma CONVERSA POR VOZ. Fale naturalmente como falaria ao telefone.`;
 
+  // Get ephemeral token from OpenAI
+  console.log("Requesting ephemeral token from OpenAI...");
+  let ephemeralKey: string;
+  
+  try {
+    const tokenResponse = await fetch("https://api.openai.com/v1/realtime/sessions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${openAIKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-realtime-preview-2024-12-17",
+        voice: "alloy",
+        instructions: systemPrompt,
+        input_audio_format: "pcm16",
+        output_audio_format: "pcm16",
+        input_audio_transcription: {
+          model: "whisper-1"
+        },
+        turn_detection: {
+          type: "server_vad",
+          threshold: 0.5,
+          prefix_padding_ms: 300,
+          silence_duration_ms: 1000
+        },
+        temperature: 0.8,
+        max_response_output_tokens: 4096
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error("Failed to get ephemeral token:", errorText);
+      return new Response(`Failed to initialize OpenAI session: ${errorText}`, { status: 500 });
+    }
+
+    const tokenData = await tokenResponse.json();
+    ephemeralKey = tokenData.client_secret.value;
+    console.log("Ephemeral token obtained successfully");
+  } catch (error) {
+    console.error("Error getting ephemeral token:", error);
+    return new Response("Failed to initialize OpenAI session", { status: 500 });
+  }
+
   const { socket: clientSocket, response } = Deno.upgradeWebSocket(req);
   
   let openAISocket: WebSocket | null = null;
-  let sessionConfigured = false;
 
   clientSocket.onopen = () => {
     console.log("Client WebSocket connected");
-    console.log("OpenAI Key configured:", !!openAIKey);
     
-    // Connect to OpenAI Realtime API
-    // Note: Deno WebSocket may not support headers in all versions
-    // We'll try the standard approach and handle errors
-    const openAIUrl = "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17";
+    // Connect to OpenAI using ephemeral token
+    const openAIUrl = `wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`;
     
     try {
-      // Attempt to create WebSocket with Authorization header
-      // This syntax is supported in newer Deno versions
-      openAISocket = new WebSocket(openAIUrl, {
-        headers: {
-          "Authorization": `Bearer ${openAIKey}`,
-          "OpenAI-Beta": "realtime=v1",
-        },
-      } as any);
+      openAISocket = new WebSocket(openAIUrl, [
+        `realtime`,
+        `openai-insecure-api-key.${ephemeralKey}`,
+        `openai-beta.realtime-v1`
+      ]);
       
-      console.log("OpenAI WebSocket created");
+      console.log("Connecting to OpenAI with ephemeral token...");
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error("Failed to create OpenAI WebSocket:", error);
       clientSocket.send(JSON.stringify({
         type: "error",
-        error: { message: `Connection failed: ${errorMessage}` }
+        error: { message: "Connection failed" }
       }));
       clientSocket.close();
       return;
@@ -122,6 +164,11 @@ LEMBRE-SE: Você está em uma CONVERSA POR VOZ. Fale naturalmente como falaria a
 
     openAISocket.onopen = () => {
       console.log("Connected to OpenAI Realtime API");
+      
+      // Notify client that connection is ready
+      clientSocket.send(JSON.stringify({
+        type: "session.created"
+      }));
     };
 
     openAISocket.onmessage = async (event) => {
@@ -129,46 +176,12 @@ LEMBRE-SE: Você está em uma CONVERSA POR VOZ. Fale naturalmente como falaria a
         const data = JSON.parse(event.data);
         console.log("OpenAI event:", data.type);
 
-        // Configure session after connection
-        if (data.type === "session.created" && !sessionConfigured) {
-          sessionConfigured = true;
-          const sessionConfig = {
-            type: "session.update",
-            session: {
-              modalities: ["text", "audio"],
-              instructions: systemPrompt,
-              voice: "alloy",
-              input_audio_format: "pcm16",
-              output_audio_format: "pcm16",
-              input_audio_transcription: {
-                model: "whisper-1",
-              },
-              turn_detection: {
-                type: "server_vad",
-                threshold: 0.5,
-                prefix_padding_ms: 300,
-                silence_duration_ms: 1000,
-              },
-              temperature: 0.8,
-              max_response_output_tokens: 4096,
-            },
-          };
-          openAISocket!.send(JSON.stringify(sessionConfig));
-          console.log("Session configured");
+        // Forward to client
+        if (clientSocket.readyState === WebSocket.OPEN) {
+          clientSocket.send(event.data);
         }
 
         // Save transcriptions
-        if (data.type === "conversation.item.created" && data.item?.role === "assistant") {
-          const content = data.item.content?.[0];
-          if (content?.transcript) {
-            await supabase.from("session_messages").insert({
-              session_id: sessionId,
-              role: "assistant",
-              content: content.transcript,
-            });
-          }
-        }
-
         if (data.type === "conversation.item.input_audio_transcription.completed") {
           await supabase.from("session_messages").insert({
             session_id: sessionId,
@@ -177,8 +190,13 @@ LEMBRE-SE: Você está em uma CONVERSA POR VOZ. Fale naturalmente como falaria a
           });
         }
 
-        // Forward to client
-        clientSocket.send(event.data);
+        if (data.type === "response.audio_transcript.done") {
+          await supabase.from("session_messages").insert({
+            session_id: sessionId,
+            role: "assistant",
+            content: data.transcript,
+          });
+        }
       } catch (error) {
         console.error("Error processing OpenAI message:", error);
       }
