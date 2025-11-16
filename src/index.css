@@ -8,13 +8,13 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 220 25% 10%;
+    --background: 220 25% 15%;
     --foreground: 0 0% 98%;
 
-    --card: 220 20% 14%;
+    --card: 220 20% 18%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 220 20% 14%;
+    --popover: 220 20% 18%;
     --popover-foreground: 0 0% 98%;
 
     --primary: 213 100% 50%;
@@ -23,29 +23,49 @@ All colors MUST be HSL.
     --secondary: 262 80% 65%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 220 15% 20%;
-    --muted-foreground: 220 10% 60%;
+    --muted: 220 15% 25%;
+    --muted-foreground: 220 10% 65%;
 
     --accent: 174 100% 50%;
-    --accent-foreground: 220 25% 10%;
+    --accent-foreground: 220 25% 15%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 15% 25%;
-    --input: 220 15% 25%;
+    --border: 220 15% 28%;
+    --input: 220 15% 28%;
     --ring: 213 100% 50%;
 
     --radius: 0.75rem;
 
     --gradient-primary: linear-gradient(135deg, hsl(193 100% 50%), hsl(154 100% 50%));
     --gradient-secondary: linear-gradient(135deg, hsl(213 100% 50%), hsl(262 80% 65%));
-    --gradient-accent: linear-gradient(180deg, hsl(220 20% 14%), hsl(220 25% 10%));
+    --gradient-accent: linear-gradient(180deg, hsl(220 20% 18%), hsl(220 25% 15%));
 
     --shadow-glow: 0 0 40px hsl(213 100% 50% / 0.3);
     --shadow-card: 0 10px 30px -10px hsl(0 0% 0% / 0.5);
 
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@layer utilities {
+  /* Mobile first spacing */
+  .container-mobile {
+    @apply px-4 sm:px-6 lg:px-8;
+  }
+  
+  /* Text sizes mobile first */
+  .text-mobile-xs { @apply text-xs sm:text-sm; }
+  .text-mobile-sm { @apply text-sm sm:text-base; }
+  .text-mobile-base { @apply text-base sm:text-lg; }
+  .text-mobile-lg { @apply text-lg sm:text-xl; }
+  .text-mobile-xl { @apply text-xl sm:text-2xl; }
+  .text-mobile-2xl { @apply text-2xl sm:text-3xl; }
+  
+  /* Button sizes mobile friendly */
+  .btn-mobile {
+    @apply px-4 py-3 text-base sm:px-6 sm:py-2 sm:text-sm;
   }
 }
 

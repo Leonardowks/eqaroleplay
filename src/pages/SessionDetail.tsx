@@ -129,9 +129,9 @@ const SessionDetail = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header userName={profile?.full_name} userAvatar={profile?.avatar_url} />
-        <div className="container mx-auto px-6 py-8">
-          <Skeleton className="h-8 w-64 mb-6" />
-          <Skeleton className="h-64 w-full" />
+        <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          <Skeleton className="h-8 w-48 sm:w-64 mb-4 sm:mb-6" />
+          <Skeleton className="h-48 sm:h-64 w-full" />
         </div>
       </div>
     );
@@ -141,26 +141,27 @@ const SessionDetail = () => {
     <div className="min-h-screen bg-background">
       <Header userName={profile?.full_name} userAvatar={profile?.avatar_url} />
       
-      <div className="container mx-auto px-6 py-8">
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/history')}
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Voltar ao Histórico
-        </Button>
+      <main className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6 sm:mb-8">
+          <Button
+            variant="outline"
+            onClick={() => navigate('/history')}
+            className="gap-2 w-full sm:w-auto"
+          >
+            <ArrowLeft size={16} />
+            Voltar
+          </Button>
+          <h1 className="text-2xl sm:text-3xl font-bold">Detalhes da Sessão</h1>
+        </div>
 
-        <Breadcrumbs />
-
-        <div className="space-y-6">
-          <Card className="p-6">
-            <div className="flex items-start justify-between mb-6">
+        <div className="space-y-4 sm:space-y-6">
+          <Card className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4 sm:mb-6">
               <div>
-                <h1 className="text-3xl font-bold mb-2">
+                <h1 className="text-2xl sm:text-3xl font-bold mb-2">
                   {session.personas?.name}
                 </h1>
-                <p className="text-muted-foreground">
+                <p className="text-sm sm:text-base text-muted-foreground">
                   {session.personas?.role} - {session.personas?.company}
                 </p>
               </div>
@@ -169,39 +170,39 @@ const SessionDetail = () => {
               </Badge>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-muted-foreground" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+              <div className="flex items-start gap-2">
+                <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Data</p>
-                  <p className="font-medium">
-                    {format(new Date(session.completed_at), 'dd/MM/yyyy', { locale: ptBR })}
+                  <p className="text-xs sm:text-sm text-muted-foreground">Data</p>
+                  <p className="text-sm sm:text-base font-medium">
+                    {format(new Date(session.completed_at), 'dd/MM/yy', { locale: ptBR })}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-muted-foreground" />
+              <div className="flex items-start gap-2">
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Duração</p>
-                  <p className="font-medium">{formatDuration(session.duration_seconds || 0)}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Duração</p>
+                  <p className="text-sm sm:text-base font-medium">{formatDuration(session.duration_seconds || 0)}</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-muted-foreground" />
+              <div className="flex items-start gap-2">
+                <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Tipo</p>
-                  <p className="font-medium">{getMeetingTypeLabel(session.meeting_type)}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Tipo</p>
+                  <p className="text-sm sm:text-base font-medium">{getMeetingTypeLabel(session.meeting_type)}</p>
                 </div>
               </div>
 
               {session.overall_score && (
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                <div className="flex items-start gap-2">
+                  <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm text-muted-foreground">Pontuação</p>
-                    <p className="font-medium">{session.overall_score.toFixed(1)}/100</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Pontuação</p>
+                    <p className="text-sm sm:text-base font-medium">{session.overall_score.toFixed(1)}/100</p>
                   </div>
                 </div>
               )}
@@ -209,19 +210,19 @@ const SessionDetail = () => {
           </Card>
 
           {competencies.length > 0 && (
-            <Card className="p-6">
-              <h2 className="text-2xl font-semibold mb-4">Competências Avaliadas</h2>
-              <div className="space-y-4">
+            <Card className="p-4 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4">Competências Avaliadas</h2>
+              <div className="space-y-3 sm:space-y-4">
                 {competencies.map((comp) => (
-                  <div key={comp.id} className="border-l-4 border-primary pl-4">
+                  <div key={comp.id} className="border-l-4 border-primary pl-3 sm:pl-4">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-medium">{comp.competency_name}</h3>
-                      <span className="text-lg font-semibold text-primary">
+                      <h3 className="text-sm sm:text-base font-medium">{comp.competency_name}</h3>
+                      <span className="text-base sm:text-lg font-semibold text-primary">
                         {comp.score.toFixed(1)}/100
                       </span>
                     </div>
                     {comp.feedback && (
-                      <p className="text-sm text-muted-foreground">{comp.feedback}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">{comp.feedback}</p>
                     )}
                   </div>
                 ))}
@@ -229,27 +230,27 @@ const SessionDetail = () => {
             </Card>
           )}
 
-          <Card className="p-6">
-            <h2 className="text-2xl font-semibold mb-4">Transcrição da Conversa</h2>
-            <div className="space-y-4">
+          <Card className="p-4 sm:p-6">
+            <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4">Transcrição da Conversa</h2>
+            <div className="space-y-3 sm:space-y-4">
               {messages.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">
+                <p className="text-center text-muted-foreground py-6 sm:py-8 text-sm sm:text-base">
                   Nenhuma mensagem gravada nesta sessão
                 </p>
               ) : (
                 messages.map((msg) => (
                   <div
                     key={msg.id}
-                    className={`p-4 rounded-lg ${
+                    className={`p-3 sm:p-4 rounded-lg ${
                       msg.role === 'user'
-                        ? 'bg-primary/10 ml-auto max-w-[80%]'
-                        : 'bg-muted max-w-[80%]'
+                        ? 'bg-primary/10 ml-0 sm:ml-auto max-w-full sm:max-w-[80%]'
+                        : 'bg-muted max-w-full sm:max-w-[80%]'
                     }`}
                   >
-                    <p className="text-sm font-medium mb-1">
+                    <p className="text-xs sm:text-sm font-medium mb-1">
                       {msg.role === 'user' ? 'Você' : session.personas?.name}
                     </p>
-                    <p className="text-foreground">{msg.content}</p>
+                    <p className="text-xs sm:text-base text-foreground break-words whitespace-pre-wrap">{msg.content}</p>
                     <p className="text-xs text-muted-foreground mt-2">
                       {format(new Date(msg.created_at), 'HH:mm', { locale: ptBR })}
                     </p>
@@ -259,13 +260,16 @@ const SessionDetail = () => {
             </div>
           </Card>
 
-          <div className="flex justify-center gap-4">
-            <Button onClick={() => navigate('/roleplay')} size="lg">
+          <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mt-4">
+            <Button onClick={() => navigate('/history')} variant="outline" size="lg" className="w-full sm:w-auto">
+              Voltar ao Histórico
+            </Button>
+            <Button onClick={() => navigate('/roleplay')} size="lg" className="w-full sm:w-auto">
               Fazer Outro Roleplay
             </Button>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

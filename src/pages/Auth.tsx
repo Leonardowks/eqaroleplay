@@ -68,7 +68,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left side - Illustration */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-primary items-center justify-center p-12 relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNnptMCAyYy0yLjIxIDAtNCAxLjc5LTQgNHMxLjc5IDQgNCA0IDQtMS43OSA0LTQtMS43OS00LTQtNHoiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iLjEiLz48L2c+PC9zdmc+')] opacity-20"></div>
@@ -83,23 +83,26 @@ const Auth = () => {
         </div>
       </div>
 
+      {/* Mobile Header - visible only on mobile */}
+      <div className="lg:hidden bg-gradient-primary p-6 text-center">
+        <img src={logo} alt="EQA Logo" className="w-20 mx-auto mb-3" />
+        <h2 className="text-lg font-bold text-white">Treinamento com IA</h2>
+      </div>
+
       {/* Right side - Form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-background">
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-8 bg-background">
         <div className="w-full max-w-md">
-          <div className="lg:hidden mb-8 text-center">
-            <img src={logo} alt="EQA Logo" className="w-32 mx-auto mb-4" />
-          </div>
           
-          <h2 className="text-3xl font-bold mb-2 text-foreground">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-foreground">
             {isLogin ? 'Bem-vindo de volta' : 'Criar conta'}
           </h2>
-          <p className="text-muted-foreground mb-8">
+          <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8">
             {isLogin
               ? 'Entre para continuar seu treinamento'
               : 'Comece a treinar suas habilidades de vendas'}
           </p>
 
-          <form onSubmit={handleAuth} className="space-y-6">
+          <form onSubmit={handleAuth} className="space-y-4 sm:space-y-6">
             {!isLogin && (
               <div className="space-y-2">
                 <Label htmlFor="fullName">Nome completo</Label>
