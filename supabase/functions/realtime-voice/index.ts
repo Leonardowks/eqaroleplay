@@ -128,8 +128,8 @@ Mantenha o papel consistente durante toda a conversa.`;
   
   let ephemeralKey: string;
   try {
-    console.log(`[${sessionId}] 🎯 Step 3: Requesting ephemeral token with session configuration...`);
-    console.log(`[${sessionId}] 📋 Token format: voice=${selectedVoice}, modalities, VAD enabled`);
+    console.log(`[${sessionId}] 🎯 Step 3: Requesting ephemeral token...`);
+    console.log(`[${sessionId}] 📋 Using GA model: gpt-4o-realtime-preview-2024-12-17, voice: ${selectedVoice}`);
     
     const tokenResponse = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",
@@ -145,17 +145,28 @@ Mantenha o papel consistente durante toda a conversa.`;
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error(`[${sessionId}] ❌ Failed to get ephemeral token:`, errorText);
+      console.error(`[${sessionId}] ❌ Token request failed:`, {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        error: errorText
+      });
       return new Response(`Failed to initialize OpenAI session: ${errorText}`, { status: 500 });
     }
 
     const tokenData = await tokenResponse.json();
-    ephemeralKey = tokenData.client_secret?.value || tokenData.value;
-    console.log(`[${sessionId}] ✅ Step 3: Ephemeral token obtained successfully`);
-    console.log(`[${sessionId}] 📋 Token response structure:`, JSON.stringify({
-      hasValue: !!ephemeralKey,
+    ephemeralKey = tokenData.client_secret?.value;
+    
+    if (!ephemeralKey) {
+      console.error(`[${sessionId}] ❌ No ephemeral key in response:`, JSON.stringify(tokenData, null, 2));
+      return new Response("Failed to get ephemeral key from OpenAI", { status: 500 });
+    }
+    
+    console.log(`[${sessionId}] ✅ Ephemeral token obtained`);
+    console.log(`[${sessionId}] 📋 Token info:`, JSON.stringify({
       hasClientSecret: !!tokenData.client_secret,
-      tokenLength: ephemeralKey?.length || 0,
+      keyLength: ephemeralKey.length,
+      model: tokenData.model,
+      expiresAt: tokenData.expires_at
     }, null, 2));
   } catch (error) {
     console.error(`[${sessionId}] ❌ Error getting ephemeral token:`, error);
@@ -165,6 +176,12 @@ Mantenha o papel consistente durante toda a conversa.`;
   // Connect to OpenAI BEFORE upgrading client WebSocket
   // Using native Deno WebSocket with ephemeral token (no custom headers needed)
   console.log(`[${sessionId}] 🔌 Step 4: Connecting to OpenAI WebSocket...`);
+  console.log(`[${sessionId}] 📋 WebSocket config:`, {
+    url: `wss://api.openai.com/v1/realtime`,
+    model: "gpt-4o-realtime-preview-2024-12-17",
+    protocol: "realtime with ephemeral key",
+    keyLength: ephemeralKey.length
+  });
   
   const openAISocket = new WebSocket(
     `wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`,
@@ -181,6 +198,12 @@ Mantenha o papel consistente durante toda a conversa.`;
   const connectionTimeout = setTimeout(() => {
     if (!isOpenAIReady) {
       console.error(`[${sessionId}] ❌ OpenAI connection timeout after 30 seconds!`);
+      console.error(`[${sessionId}] 📊 Connection state:`, {
+        isReady: isOpenAIReady,
+        configured: sessionConfigured,
+        queuedMessages: messageQueue.length,
+        socketReadyState: openAISocket.readyState
+      });
       openAISocket.close();
       if (clientSocket && clientSocket.readyState === WebSocket.OPEN) {
         clientSocket.send(JSON.stringify({
@@ -194,7 +217,13 @@ Mantenha o papel consistente durante toda a conversa.`;
 
   // OpenAI socket handlers
   openAISocket.onopen = () => {
-    console.log(`[${sessionId}] ✅ Step 4: OpenAI WebSocket connected - READY TO RECEIVE AUDIO`);
+    console.log(`[${sessionId}] ✅ OpenAI WebSocket CONNECTED`);
+    console.log(`[${sessionId}] 📊 Connection details:`, {
+      readyState: openAISocket.readyState,
+      protocol: openAISocket.protocol,
+      url: openAISocket.url,
+      queuedMessages: messageQueue.length
+    });
     clearTimeout(connectionTimeout);
     isOpenAIReady = true;
 
@@ -204,6 +233,7 @@ Mantenha o papel consistente durante toda a conversa.`;
       while (messageQueue.length > 0) {
         const msg = messageQueue.shift();
         if (msg && openAISocket.readyState === WebSocket.OPEN) {
+          console.log(`[${sessionId}] 📤 Sending queued message:`, msg.substring(0, 100));
           openAISocket.send(msg);
         }
       }
@@ -220,11 +250,15 @@ Mantenha o papel consistente durante toda a conversa.`;
 
       // Log critical events with details
       if (data.type === "session.created") {
-        console.log(`[${sessionId}] 🎯 Session created, configuring with session.update...`);
-        console.log(`[${sessionId}] 📋 Initial session:`, JSON.stringify({
+        console.log(`[${sessionId}] 🎯 SESSION CREATED - Configuring now...`);
+        console.log(`[${sessionId}] 📋 Session details:`, JSON.stringify({
+          id: data.session?.id,
           model: data.session?.model,
           voice: data.session?.voice,
           modalities: data.session?.modalities,
+          input_audio_format: data.session?.input_audio_format,
+          output_audio_format: data.session?.output_audio_format,
+          turn_detection: data.session?.turn_detection,
         }, null, 2));
         
         // Send complete configuration via session.update
@@ -251,11 +285,21 @@ Mantenha o papel consistente durante toda a conversa.`;
             },
           };
           
-          console.log(`[${sessionId}] 📤 Sending session.update...`);
+          console.log(`[${sessionId}] 📤 Sending session.update with config:`, JSON.stringify({
+            modalities: sessionConfig.session.modalities,
+            voice: sessionConfig.session.voice,
+            formats: `${sessionConfig.session.input_audio_format}→${sessionConfig.session.output_audio_format}`,
+            vad: sessionConfig.session.turn_detection.type,
+            instructionsLength: systemPrompt.length
+          }, null, 2));
+          
           openAISocket.send(JSON.stringify(sessionConfig));
-          console.log(`[${sessionId}] ✅ session.update sent successfully`);
+          console.log(`[${sessionId}] ✅ session.update sent, waiting for confirmation...`);
         } catch (error) {
-          console.error(`[${sessionId}] ❌ Failed to send session.update:`, error);
+          console.error(`[${sessionId}] ❌ CRITICAL: Failed to send session.update:`, {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+          });
           // Don't mark as configured if update fails
           if (clientSocket && clientSocket.readyState === WebSocket.OPEN) {
             clientSocket.send(JSON.stringify({
@@ -458,10 +502,16 @@ Mantenha o papel consistente durante toda a conversa.`;
   };
 
   openAISocket.onerror = (error) => {
-    console.error(`[${sessionId}] ❌ OpenAI WebSocket error event:`, {
-      error,
+    console.error(`[${sessionId}] ❌ OpenAI WebSocket ERROR:`, {
+      error: error,
+      errorType: typeof error,
       readyState: openAISocket.readyState,
-      url: openAISocket.url
+      readyStateText: ["CONNECTING", "OPEN", "CLOSING", "CLOSED"][openAISocket.readyState],
+      url: openAISocket.url,
+      protocol: openAISocket.protocol,
+      isReady: isOpenAIReady,
+      configured: sessionConfigured,
+      timestamp: new Date().toISOString()
     });
     clearTimeout(connectionTimeout);
     
@@ -481,12 +531,19 @@ Mantenha o papel consistente durante toda a conversa.`;
     }
   };
 
-  openAISocket.onclose = () => {
-    console.log(`[${sessionId}] ⚠️ OpenAI WebSocket closed`);
+  openAISocket.onclose = (event) => {
+    console.log(`[${sessionId}] ⚠️ OpenAI WebSocket CLOSED:`, {
+      code: event.code,
+      reason: event.reason || "No reason provided",
+      wasClean: event.wasClean,
+      isReady: isOpenAIReady,
+      configured: sessionConfigured,
+      timestamp: new Date().toISOString()
+    });
     
     // Attempt reconnection if client is still connected
     if (clientSocket && clientSocket.readyState === WebSocket.OPEN && !isOpenAIReady) {
-      console.log(`[${sessionId}] 🔄 Connection failed, client will need to reconnect`);
+      console.log(`[${sessionId}] 🔄 Connection failed before ready, client will need to reconnect`);
     }
     
     cleanup();
