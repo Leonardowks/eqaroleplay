@@ -567,13 +567,37 @@ ${conversation}`;
       throw updateError;
     }
 
+    // Verificar e desbloquear achievements
+    const userId = session.user_id;
+    try {
+      await supabase.rpc('check_and_unlock_achievements', {
+        _user_id: userId,
+        _session_id: sessionId
+      });
+      console.log(`Achievements checked for user ${userId}`);
+    } catch (achievementError) {
+      console.error('Error checking achievements:', achievementError);
+      // Não falhar a request se achievements falhar
+    }
+
+    // Buscar achievements desbloqueados nesta sessão (recentemente)
+    const { data: newAchievements } = await supabase
+      .from('user_achievements')
+      .select(`
+        achievement_id,
+        unlocked_at
+      `)
+      .eq('user_id', userId)
+      .gte('unlocked_at', new Date(Date.now() - 5000).toISOString()); // últimos 5 segundos
+
     console.log(`Session ${sessionId} evaluated. Overall score: ${overallScore}`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         overallScore,
-        competencies: evaluations 
+        competencies: evaluations,
+        newAchievements: newAchievements?.map(a => a.achievement_id) || []
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
