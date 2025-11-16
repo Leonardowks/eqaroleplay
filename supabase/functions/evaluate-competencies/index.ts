@@ -219,6 +219,7 @@ REGRAS DE AVALIAÇÃO:
 - Dê feedback ACIONÁVEL: não "melhorar comunicação", mas "pergunte 'Quanto tempo sua equipe gasta nisso?' para quantificar"
 - SEMPRE mencione automação com IA no contexto
 - Forneça 3-4 sugestões práticas específicas por competência
+- Para cada sub_score, forneça feedback específico de 5-10 palavras em "sub_scores_feedback"
 
 Retorne um JSON array EXATAMENTE neste formato:
 [
@@ -230,6 +231,12 @@ Retorne um JSON array EXATAMENTE neste formato:
       "credibilidade": 85,
       "agenda_clara": 80,
       "value_proposition": 85
+    },
+    "sub_scores_feedback": {
+      "conexao_inicial": "Excelente empatia demonstrada logo no início",
+      "credibilidade": "Mencionou case relevante, mas poderia detalhar mais",
+      "agenda_clara": "Agenda foi definida, mas tardiamente na conversa",
+      "value_proposition": "Value proposition clara e focada no cliente"
     },
     "feedback": "Excelente abertura! Estabeleceu rapport forte e mencionou case de automação similar. Sugestão: definir agenda mais cedo ('Temos 30 minutos, vamos focar em X, ok?').",
     "ai_suggestions": [
