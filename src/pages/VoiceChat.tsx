@@ -209,9 +209,13 @@ const VoiceChat = () => {
 
         if (data.type === "error") {
           console.error("WebSocket error:", data.error);
+          const errorMessage = typeof data.error === 'string' 
+            ? data.error 
+            : data.error?.message || JSON.stringify(data.error) || "Erro na conexão";
+          
           toast({
             title: "Erro",
-            description: data.error || "Erro na conexão",
+            description: errorMessage,
             variant: "destructive",
           });
         }
