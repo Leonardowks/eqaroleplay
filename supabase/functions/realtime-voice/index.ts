@@ -234,39 +234,73 @@ Mantenha o papel consistente durante toda a conversa.`;
           modalities: data.session?.modalities,
         }, null, 2));
         
-        // Send session.update with all detailed configurations
-        openAISocket.send(
-          JSON.stringify({
-            type: "session.update",
-            session: {
-              modalities: ["text", "audio"],
-              instructions: systemPrompt,
-              input_audio_format: "pcm16",
-              output_audio_format: "pcm16",
-              input_audio_transcription: {
-                model: "whisper-1",
+        // Send session.update with all detailed configurations (with error handling)
+        try {
+          openAISocket.send(
+            JSON.stringify({
+              type: "session.update",
+              session: {
+                modalities: ["text", "audio"],
+                instructions: systemPrompt,
+                input_audio_format: "pcm16",
+                output_audio_format: "pcm16",
+                input_audio_transcription: {
+                  model: "whisper-1",
+                },
+                turn_detection: {
+                  type: "server_vad",
+                  threshold: 0.5,
+                  prefix_padding_ms: 600,
+                  silence_duration_ms: 1500,
+                },
+                temperature: 0.9,
+                max_response_output_tokens: 150,
               },
-              turn_detection: {
-                type: "server_vad",
-                threshold: 0.5,
-                prefix_padding_ms: 600,
-                silence_duration_ms: 1500,
-              },
-              temperature: 0.9,
-              max_response_output_tokens: 150,
-            },
-          })
-        );
-        
-        sessionConfigured = true;
-        console.log(`[${sessionId}] ✅ Session update sent with full configuration`);
+            })
+          );
+          
+          sessionConfigured = true;
+          console.log(`[${sessionId}] ✅ Session update sent with full configuration`);
+        } catch (error) {
+          console.error(`[${sessionId}] ⚠️ Failed to send session.update, continuing with ephemeral token config:`, error);
+          // Sistema pode continuar funcionando com configurações do ephemeral token
+          sessionConfigured = true; // Marcar como configurado mesmo com falha
+        }
       } else if (data.type === "session.updated") {
-        console.log(`[${sessionId}] ✅ Session update confirmed`);
+        console.log(`[${sessionId}] ✅ Session update confirmed - system fully operational`);
       } else if (data.type === "error") {
-        console.error(`[${sessionId}] ❌ OpenAI error:`, JSON.stringify(data.error, null, 2));
+        console.error(`[${sessionId}] ❌ OpenAI error received:`, JSON.stringify(data.error, null, 2));
+        
+        // Handle specific error types
         if (data.error?.param?.includes("session.")) {
-          console.error(`[${sessionId}] ⚠️ Session configuration error - continuing with ephemeral token config`);
-          // Don't close connection, system can still work with ephemeral token config
+          console.error(`[${sessionId}] ⚠️ Session configuration error detected:`, {
+            param: data.error.param,
+            message: data.error.message,
+            code: data.error.code
+          });
+          console.log(`[${sessionId}] 🔄 Continuing with ephemeral token configuration (fallback mode)`);
+          // Don't close connection - system can work with ephemeral token config
+          sessionConfigured = true;
+        } else if (data.error?.type === "invalid_request_error") {
+          console.error(`[${sessionId}] ⚠️ Invalid request error:`, data.error.message);
+          // Log but don't crash - let the connection continue
+        } else {
+          console.error(`[${sessionId}] ⚠️ General OpenAI error:`, {
+            type: data.error?.type,
+            message: data.error?.message,
+            code: data.error?.code
+          });
+        }
+        
+        // Forward error to client for visibility
+        if (clientSocket && clientSocket.readyState === WebSocket.OPEN) {
+          clientSocket.send(JSON.stringify({
+            type: "error",
+            error: {
+              message: "OpenAI error occurred, but connection is maintained",
+              details: data.error?.message,
+            }
+          }));
         }
       } else if (data.type === "response.audio.delta") {
         console.log(`[${sessionId}] 🔊 Audio chunk: ${data.delta?.length || 0} bytes`);
@@ -389,25 +423,55 @@ Mantenha o papel consistente durante toda a conversa.`;
           }
         }
       } else if (data.type === "error") {
-        console.error(`[${sessionId}] ❌ OpenAI error:`, JSON.stringify(data.error));
+        console.error(`[${sessionId}] ❌ OpenAI error event:`, JSON.stringify(data.error, null, 2));
+        // Already handled above, this catches duplicate error events
       } else if (data.type === "response.created") {
         console.log(`[${sessionId}] 🤖 AI response started`);
       } else if (data.type === "response.done") {
         console.log(`[${sessionId}] ✅ AI response finished`);
       }
 
-      // Forward to client
+      // Forward to client (with error handling)
       if (clientSocket && clientSocket.readyState === WebSocket.OPEN) {
-        clientSocket.send(event.data);
+        try {
+          clientSocket.send(event.data);
+        } catch (error) {
+          console.error(`[${sessionId}] ⚠️ Failed to forward message to client:`, error);
+          // Continue anyway - don't crash the system
+        }
       }
     } catch (error) {
-      console.error(`[${sessionId}] ❌ Error handling OpenAI message:`, error);
+      console.error(`[${sessionId}] ❌ Critical error handling OpenAI message:`, {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      // Don't throw - keep the connection alive
     }
   };
 
   openAISocket.onerror = (error) => {
-    console.error(`[${sessionId}] ❌ OpenAI WebSocket error:`, error);
+    console.error(`[${sessionId}] ❌ OpenAI WebSocket error event:`, {
+      error,
+      readyState: openAISocket.readyState,
+      url: openAISocket.url
+    });
     clearTimeout(connectionTimeout);
+    
+    // Notify client of connection issues
+    if (clientSocket && clientSocket.readyState === WebSocket.OPEN) {
+      try {
+        clientSocket.send(JSON.stringify({
+          type: "error",
+          error: {
+            message: "Voice connection interrupted",
+            recoverable: true
+          }
+        }));
+      } catch (e) {
+        console.error(`[${sessionId}] ⚠️ Failed to notify client of error:`, e);
+      }
+    }
   };
 
   openAISocket.onclose = () => {
