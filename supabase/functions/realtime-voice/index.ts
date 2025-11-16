@@ -128,7 +128,8 @@ Mantenha o papel consistente durante toda a conversa.`;
   
   let ephemeralKey: string;
   try {
-    console.log(`[${sessionId}] 🎯 Step 3: Requesting ephemeral token with full configuration...`);
+    console.log(`[${sessionId}] 🎯 Step 3: Requesting ephemeral token with minimal configuration...`);
+    console.log(`[${sessionId}] 📋 Ephemeral token format: type=realtime, model=gpt-4o-realtime-preview-2024-12-17, voice=${selectedVoice}`);
     
     const tokenResponse = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
       method: "POST",
@@ -140,28 +141,11 @@ Mantenha o papel consistente durante toda a conversa.`;
         session: {
           type: "realtime",
           model: "gpt-4o-realtime-preview-2024-12-17",
-          modalities: ["text", "audio"],
-          instructions: systemPrompt,
           audio: {
-            input: {
-              format: "pcm16",
-            },
             output: {
-              format: "pcm16",
               voice: selectedVoice,
             },
           },
-          input_audio_transcription: {
-            model: "whisper-1",
-          },
-          turn_detection: {
-            type: "server_vad",
-            threshold: 0.5,
-            prefix_padding_ms: 600,
-            silence_duration_ms: 1500,
-          },
-          temperature: 0.9,
-          max_response_output_tokens: 150,
         },
       }),
     });
