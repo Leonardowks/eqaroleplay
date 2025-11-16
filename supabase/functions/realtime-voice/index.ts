@@ -220,17 +220,39 @@ Mantenha o papel consistente durante toda a conversa.`;
 
       // Log critical events only
       if (data.type === "session.created") {
-        console.log(`[${sessionId}] 🎯 Session created successfully`);
+        console.log(`[${sessionId}] 🎯 Session created, sending full configuration...`);
         console.log(`[${sessionId}] 📋 Session config from ephemeral token:`, JSON.stringify({
           model: data.session?.model,
           voice: data.session?.voice,
           modalities: data.session?.modalities,
         }, null, 2));
         
-        // All configuration is already set in ephemeral token
-        // No need to send session.update unless we need to change instructions dynamically
+        // Send session.update with all detailed configurations
+        openAISocket.send(
+          JSON.stringify({
+            type: "session.update",
+            session: {
+              modalities: ["text", "audio"],
+              instructions: systemPrompt,
+              input_audio_format: "pcm16",
+              output_audio_format: "pcm16",
+              input_audio_transcription: {
+                model: "whisper-1",
+              },
+              turn_detection: {
+                type: "server_vad",
+                threshold: 0.5,
+                prefix_padding_ms: 600,
+                silence_duration_ms: 1500,
+              },
+              temperature: 0.9,
+              max_response_output_tokens: 150,
+            },
+          })
+        );
+        
         sessionConfigured = true;
-        console.log(`[${sessionId}] ✅ Session ready (all config from ephemeral token)`);
+        console.log(`[${sessionId}] ✅ Session update sent with full configuration`);
       } else if (data.type === "session.updated") {
         console.log(`[${sessionId}] ✅ Session update confirmed`);
       } else if (data.type === "error") {
