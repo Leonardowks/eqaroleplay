@@ -128,6 +128,8 @@ Mantenha o papel consistente durante toda a conversa.`;
   
   let ephemeralKey: string;
   try {
+    console.log(`[${sessionId}] 🎯 Step 3: Requesting ephemeral token with full configuration...`);
+    
     const tokenResponse = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
       method: "POST",
       headers: {
@@ -138,11 +140,28 @@ Mantenha o papel consistente durante toda a conversa.`;
         session: {
           type: "realtime",
           model: "gpt-4o-realtime-preview-2024-12-17",
+          modalities: ["text", "audio"],
+          instructions: systemPrompt,
           audio: {
+            input: {
+              format: "pcm16",
+            },
             output: {
+              format: "pcm16",
               voice: selectedVoice,
             },
           },
+          input_audio_transcription: {
+            model: "whisper-1",
+          },
+          turn_detection: {
+            type: "server_vad",
+            threshold: 0.5,
+            prefix_padding_ms: 600,
+            silence_duration_ms: 1500,
+          },
+          temperature: 0.9,
+          max_response_output_tokens: 150,
         },
       }),
     });
@@ -155,7 +174,8 @@ Mantenha o papel consistente durante toda a conversa.`;
 
     const tokenData = await tokenResponse.json();
     ephemeralKey = tokenData.value;
-    console.log(`[${sessionId}] ✅ Step 3: Ephemeral token obtained`);
+    console.log(`[${sessionId}] ✅ Step 3: Ephemeral token obtained with full config`);
+    console.log(`[${sessionId}] 📋 Config: voice=${selectedVoice}, VAD enabled, pcm16 format`);
   } catch (error) {
     console.error(`[${sessionId}] ❌ Error getting ephemeral token:`, error);
     return new Response("Failed to initialize OpenAI session", { status: 500 });
@@ -216,39 +236,25 @@ Mantenha o papel consistente durante toda a conversa.`;
 
       // Log critical events only
       if (data.type === "session.created") {
-        console.log(`[${sessionId}] 🎯 Session created, configuring...`);
+        console.log(`[${sessionId}] 🎯 Session created successfully`);
+        console.log(`[${sessionId}] 📋 Session config from ephemeral token:`, JSON.stringify({
+          model: data.session?.model,
+          voice: data.session?.voice,
+          modalities: data.session?.modalities,
+        }, null, 2));
         
-        // Send session configuration AFTER receiving session.created
-        if (!sessionConfigured) {
-          openAISocket.send(
-            JSON.stringify({
-              type: "session.update",
-              session: {
-                type: "realtime",
-                instructions: systemPrompt,
-                // voice is immutable - set only in ephemeral token
-                input_audio_format: "pcm16",
-                output_audio_format: "pcm16",
-                input_audio_transcription: {
-                  model: "whisper-1",
-                },
-                turn_detection: {
-                  type: "server_vad",
-                  threshold: 0.5,
-                  prefix_padding_ms: 600,
-                  silence_duration_ms: 1500,
-                  create_response: true,
-                },
-                temperature: 0.9,
-                max_response_output_tokens: 150,
-              },
-            })
-          );
-          sessionConfigured = true;
-          console.log(`[${sessionId}] ✅ Session configured with VAD and instructions`);
-        }
+        // All configuration is already set in ephemeral token
+        // No need to send session.update unless we need to change instructions dynamically
+        sessionConfigured = true;
+        console.log(`[${sessionId}] ✅ Session ready (all config from ephemeral token)`);
       } else if (data.type === "session.updated") {
         console.log(`[${sessionId}] ✅ Session update confirmed`);
+      } else if (data.type === "error") {
+        console.error(`[${sessionId}] ❌ OpenAI error:`, JSON.stringify(data.error, null, 2));
+        if (data.error?.param?.includes("session.")) {
+          console.error(`[${sessionId}] ⚠️ Session configuration error - continuing with ephemeral token config`);
+          // Don't close connection, system can still work with ephemeral token config
+        }
       } else if (data.type === "response.audio.delta") {
         console.log(`[${sessionId}] 🔊 Audio chunk: ${data.delta?.length || 0} bytes`);
       } else if (data.type === "response.audio.done") {
