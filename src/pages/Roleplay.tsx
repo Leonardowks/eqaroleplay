@@ -24,100 +24,24 @@ interface Persona {
   description: string;
 }
 
-const personas: Persona[] = [
-  {
-    id: '1',
-    name: 'Ricardo Startup',
-    role: 'Fundador',
-    company: 'Tech Startup',
-    sector: 'Tecnologia',
-    difficulty: 'easy',
-    description: 'Jovem empreendedor, entusiasta de IA, orçamento limitado mas mente aberta',
-  },
-  {
-    id: '2',
-    name: 'Marina E-commerce',
-    role: 'Gerente de Operações',
-    company: 'Loja Online',
-    sector: 'Varejo Digital',
-    difficulty: 'easy',
-    description: 'Sobrecarregada com tarefas manuais, busca eficiência imediata',
-  },
-  {
-    id: '3',
-    name: 'André Pequeno Negócio',
-    role: 'Proprietário',
-    company: 'Consultoria',
-    sector: 'Serviços',
-    difficulty: 'easy',
-    description: 'Precisa automatizar processos administrativos básicos',
-  },
-  {
-    id: '4',
-    name: 'Fernanda RH',
-    role: 'Diretora de Gente',
-    company: 'Empresa Médio Porte',
-    sector: 'Recursos Humanos',
-    difficulty: 'medium',
-    description: 'Quer automatizar recrutamento e onboarding, preocupada com custos',
-  },
-  {
-    id: '5',
-    name: 'Carlos Industrial',
-    role: 'Gerente de Produção',
-    company: 'Indústria',
-    sector: 'Manufatura',
-    difficulty: 'medium',
-    description: 'Tradicional, cético com IA, foca em resultados tangíveis',
-  },
-  {
-    id: '6',
-    name: 'Juliana Marketing',
-    role: 'CMO',
-    company: 'Agência Digital',
-    sector: 'Marketing',
-    difficulty: 'medium',
-    description: 'Conhece automação mas questiona diferencial da sua solução',
-  },
-  {
-    id: '7',
-    name: 'Dr. Roberto Advogado',
-    role: 'Sócio',
-    company: 'Escritório Jurídico',
-    sector: 'Advocacia',
-    difficulty: 'hard',
-    description: 'Extremamente preocupado com segurança e compliance, LGPD',
-  },
-  {
-    id: '8',
-    name: 'Patricia CFO',
-    role: 'Diretora Financeira',
-    company: 'Holding',
-    sector: 'Financeiro',
-    difficulty: 'hard',
-    description: 'Foca intensamente em ROI, payback e métricas financeiras',
-  },
-  {
-    id: '9',
-    name: 'Gustavo TI',
-    role: 'CTO',
-    company: 'Empresa Enterprise',
-    sector: 'Tecnologia',
-    difficulty: 'hard',
-    description: 'Técnico, questiona arquitetura, integrações e escalabilidade',
-  },
-];
-
 const Roleplay = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [meetingType, setMeetingType] = useState('prospection');
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
+  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     checkUser();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadPersonas();
+    }
+  }, [user]);
 
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -134,6 +58,24 @@ const Roleplay = () => {
       .single();
     
     setProfile(profileData);
+  };
+
+  const loadPersonas = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('personas')
+        .select('*')
+        .order('difficulty', { ascending: true });
+
+      if (error) throw error;
+      
+      setPersonas((data as Persona[]) || []);
+    } catch (error) {
+      console.error('Error loading personas:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -208,32 +150,43 @@ const Roleplay = () => {
         {/* Personas Grid */}
         <div className="mb-8">
           <h2 className="text-xl font-bold mb-6">Escolha sua Persona</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {personas.map((persona) => (
-              <Card
-                key={persona.id}
-                className={`p-6 bg-card border-border hover:shadow-glow transition-all cursor-pointer ${
-                  selectedPersona?.id === persona.id ? 'ring-2 ring-primary' : ''
-                }`}
-                onClick={() => setSelectedPersona(persona)}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="p-3 bg-muted rounded-full">
-                    <User className="text-foreground" size={28} />
+          
+          {loading ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">Carregando personas...</p>
+            </div>
+          ) : personas.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">Nenhuma persona disponível</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {personas.map((persona) => (
+                <Card
+                  key={persona.id}
+                  className={`p-6 bg-card border-border hover:shadow-glow transition-all cursor-pointer ${
+                    selectedPersona?.id === persona.id ? 'ring-2 ring-primary' : ''
+                  }`}
+                  onClick={() => setSelectedPersona(persona)}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="p-3 bg-muted rounded-full">
+                      <User className="text-foreground" size={28} />
+                    </div>
+                    <Badge className={getDifficultyColor(persona.difficulty)}>
+                      {getDifficultyLabel(persona.difficulty)}
+                    </Badge>
                   </div>
-                  <Badge className={getDifficultyColor(persona.difficulty)}>
-                    {getDifficultyLabel(persona.difficulty)}
-                  </Badge>
-                </div>
-                <h3 className="text-lg font-bold mb-1">{persona.name}</h3>
-                <p className="text-sm text-muted-foreground mb-1">
-                  {persona.role} @ {persona.company}
-                </p>
-                <p className="text-xs text-muted-foreground mb-3">{persona.sector}</p>
-                <p className="text-sm">{persona.description}</p>
-              </Card>
-            ))}
-          </div>
+                  <h3 className="text-lg font-bold mb-1">{persona.name}</h3>
+                  <p className="text-sm text-muted-foreground mb-1">
+                    {persona.role} @ {persona.company}
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-3">{persona.sector}</p>
+                  <p className="text-sm">{persona.description}</p>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Start Buttons */}
