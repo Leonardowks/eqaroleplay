@@ -148,6 +148,26 @@ export const encodeAudioForAPI = (float32Array: Float32Array): string => {
   return btoa(binary);
 };
 
+/**
+ * Converte PCM16 (Uint8Array) para Float32Array normalizado (-1.0 a 1.0)
+ * Usado para reprodução direta sem conversão para WAV
+ */
+export const pcm16ToFloat32 = (pcm16Data: Uint8Array): Float32Array => {
+  const samples = pcm16Data.length / 2; // 2 bytes por sample (16-bit)
+  const float32Array = new Float32Array(samples);
+  
+  for (let i = 0; i < samples; i++) {
+    // Ler 16-bit little-endian signed integer
+    const int16 = (pcm16Data[i * 2 + 1] << 8) | pcm16Data[i * 2];
+    // Converter signed 16-bit para signed (two's complement)
+    const signedInt16 = int16 > 0x7FFF ? int16 - 0x10000 : int16;
+    // Normalizar para -1.0 a 1.0
+    float32Array[i] = signedInt16 / 0x8000;
+  }
+  
+  return float32Array;
+};
+
 export const createWavFromPCM = (pcmData: Uint8Array): Uint8Array => {
   const int16Data = new Int16Array(pcmData.length / 2);
   for (let i = 0; i < pcmData.length; i += 2) {
