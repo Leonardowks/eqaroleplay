@@ -617,19 +617,44 @@ const VoiceChat = () => {
         })
         .eq("id", sessionId);
 
-      // Wait for messages to be saved before evaluation
-      console.log("Waiting 2 seconds for messages to be saved...");
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Validate messages before evaluation
+      console.log("Validating messages before evaluation...");
       
-      // Trigger AI evaluation
       try {
-        console.log("Starting AI evaluation for session:", sessionId);
-        await supabase.functions.invoke('evaluate-competencies', {
-          body: { sessionId },
-        });
-        console.log("AI evaluation triggered successfully");
+        // Check if messages exist
+        const { data: messages, error: msgError } = await supabase
+          .from("session_messages")
+          .select("id")
+          .eq("session_id", sessionId)
+          .limit(1);
+
+        if (msgError) {
+          console.error("Error checking messages:", msgError);
+        }
+
+        if (messages && messages.length > 0) {
+          console.log("Messages found, starting AI evaluation for session:", sessionId);
+          
+          await supabase.functions.invoke('evaluate-competencies', {
+            body: { sessionId },
+          });
+          
+          console.log("AI evaluation triggered successfully");
+        } else {
+          console.warn("No messages found for session, skipping evaluation");
+          toast({
+            title: "Aviso",
+            description: "Nenhuma mensagem foi registrada nesta sessão",
+            variant: "destructive",
+          });
+        }
       } catch (err) {
-        console.error('Error evaluating:', err);
+        console.error('Error during evaluation process:', err);
+        toast({
+          title: "Erro",
+          description: "Erro ao processar avaliação da sessão",
+          variant: "destructive",
+        });
       }
     }
 

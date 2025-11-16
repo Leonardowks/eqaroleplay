@@ -176,10 +176,10 @@ Mantenha o papel consistente durante toda a conversa.`;
   let sessionConfigured = false;
   let clientSocket: WebSocket;
 
-  // Connection timeout - fail if OpenAI doesn't connect in 10 seconds
+  // Connection timeout - increased to 30s for more stability
   const connectionTimeout = setTimeout(() => {
     if (!isOpenAIReady) {
-      console.error(`[${sessionId}] ❌ OpenAI connection timeout after 10 seconds!`);
+      console.error(`[${sessionId}] ❌ OpenAI connection timeout after 30 seconds!`);
       openAISocket.close();
       if (clientSocket && clientSocket.readyState === WebSocket.OPEN) {
         clientSocket.send(JSON.stringify({
@@ -189,7 +189,7 @@ Mantenha o papel consistente durante toda a conversa.`;
         clientSocket.close();
       }
     }
-  }, 10000);
+  }, 30000);
 
   // OpenAI socket handlers
   openAISocket.onopen = () => {
@@ -226,7 +226,7 @@ Mantenha o papel consistente durante toda a conversa.`;
               session: {
                 type: "realtime",
                 instructions: systemPrompt,
-                voice: selectedVoice,
+                // voice is immutable - set only in ephemeral token
                 input_audio_format: "pcm16",
                 output_audio_format: "pcm16",
                 input_audio_transcription: {
@@ -258,22 +258,80 @@ Mantenha o papel consistente durante toda a conversa.`;
       } else if (data.type === "conversation.item.input_audio_transcription.completed") {
         console.log(`[${sessionId}] 🎤 User said: "${data.transcript}"`);
         
-        // Save user message to database
-        await supabase.from("session_messages").insert({
-          session_id: sessionId,
-          role: "user",
-          content: data.transcript,
-        });
+        // Save user message to database with retry logic
+        const maxRetries = 3;
+        let retryCount = 0;
+        let saved = false;
+
+        while (retryCount < maxRetries && !saved) {
+          try {
+            const { error: msgError } = await supabase.from("session_messages").insert({
+              session_id: sessionId,
+              role: "user",
+              content: data.transcript,
+            });
+
+            if (msgError) {
+              console.error(`[${sessionId}] ❌ Error saving user message (attempt ${retryCount + 1}/${maxRetries}):`, msgError);
+              retryCount++;
+              if (retryCount < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, 300 * retryCount));
+              }
+            } else {
+              console.log(`[${sessionId}] ✅ User message saved successfully`);
+              saved = true;
+            }
+          } catch (err) {
+            console.error(`[${sessionId}] ❌ Exception saving user message (attempt ${retryCount + 1}):`, err);
+            retryCount++;
+            if (retryCount < maxRetries) {
+              await new Promise(resolve => setTimeout(resolve, 300 * retryCount));
+            }
+          }
+        }
+
+        if (!saved) {
+          console.error(`[${sessionId}] 🚨 CRITICAL: Failed to save user message after ${maxRetries} attempts`);
+        }
       } else if (data.type === "response.audio_transcript.done") {
         console.log(`[${sessionId}] 📝 Full AI transcript: "${data.transcript}"`);
         
-        // Save assistant message to database
+        // Save assistant message to database with retry logic
         if (data.transcript) {
-          await supabase.from("session_messages").insert({
-            session_id: sessionId,
-            role: "assistant",
-            content: data.transcript,
-          });
+          const maxRetries = 3;
+          let retryCount = 0;
+          let saved = false;
+
+          while (retryCount < maxRetries && !saved) {
+            try {
+              const { error: msgError } = await supabase.from("session_messages").insert({
+                session_id: sessionId,
+                role: "assistant",
+                content: data.transcript,
+              });
+
+              if (msgError) {
+                console.error(`[${sessionId}] ❌ Error saving assistant message (attempt ${retryCount + 1}/${maxRetries}):`, msgError);
+                retryCount++;
+                if (retryCount < maxRetries) {
+                  await new Promise(resolve => setTimeout(resolve, 300 * retryCount));
+                }
+              } else {
+                console.log(`[${sessionId}] ✅ Assistant message saved successfully`);
+                saved = true;
+              }
+            } catch (err) {
+              console.error(`[${sessionId}] ❌ Exception saving assistant message (attempt ${retryCount + 1}):`, err);
+              retryCount++;
+              if (retryCount < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, 300 * retryCount));
+              }
+            }
+          }
+
+          if (!saved) {
+            console.error(`[${sessionId}] 🚨 CRITICAL: Failed to save assistant message after ${maxRetries} attempts`);
+          }
         }
       } else if (data.type === "error") {
         console.error(`[${sessionId}] ❌ OpenAI error:`, JSON.stringify(data.error));
