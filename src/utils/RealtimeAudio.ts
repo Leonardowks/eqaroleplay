@@ -129,6 +129,9 @@ export class AudioQueue {
   }
 
   async addToQueue(audioData: Uint8Array) {
+    if (this.isPlaying && this.queue.length > 5) {
+      console.warn("⚠️ Audio queue is backing up - multiple audio sources may be active!");
+    }
     this.queue.push(audioData);
     if (!this.isPlaying) {
       await this.playNext();

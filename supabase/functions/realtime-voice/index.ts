@@ -135,11 +135,23 @@ LEMBRE-SE: Você está em uma CONVERSA POR VOZ. Fale naturalmente como falaria a
   }
 
   const { socket: clientSocket, response } = Deno.upgradeWebSocket(req);
+  console.log(`[${sessionId}] Client WebSocket connection established`);
   
   let openAISocket: WebSocket | null = null;
+  let isCleaningUp = false;
+
+  const cleanup = () => {
+    if (isCleaningUp) return;
+    isCleaningUp = true;
+    console.log(`[${sessionId}] Cleaning up resources`);
+    
+    if (openAISocket?.readyState === WebSocket.OPEN) {
+      openAISocket.close();
+    }
+  };
 
   clientSocket.onopen = () => {
-    console.log("Client WebSocket connected");
+    console.log(`[${sessionId}] Client WebSocket opened`);
     
     // Connect to OpenAI using ephemeral token
     const openAIUrl = `wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`;
@@ -203,13 +215,14 @@ LEMBRE-SE: Você está em uma CONVERSA POR VOZ. Fale naturalmente como falaria a
     };
 
     openAISocket.onerror = (error) => {
-      console.error("OpenAI WebSocket error:", error);
+      console.error(`[${sessionId}] OpenAI WebSocket error:`, error);
       clientSocket.send(JSON.stringify({ type: "error", error: "OpenAI connection error" }));
+      cleanup();
     };
 
     openAISocket.onclose = () => {
-      console.log("OpenAI WebSocket closed");
-      clientSocket.close();
+      console.log(`[${sessionId}] OpenAI disconnected`);
+      cleanup();
     };
   };
 
@@ -220,17 +233,13 @@ LEMBRE-SE: Você está em uma CONVERSA POR VOZ. Fale naturalmente como falaria a
   };
 
   clientSocket.onclose = () => {
-    console.log("Client WebSocket closed");
-    if (openAISocket) {
-      openAISocket.close();
-    }
+    console.log(`[${sessionId}] Client disconnected`);
+    cleanup();
   };
 
   clientSocket.onerror = (error) => {
-    console.error("Client WebSocket error:", error);
-    if (openAISocket) {
-      openAISocket.close();
-    }
+    console.error(`[${sessionId}] Client WebSocket error:`, error);
+    cleanup();
   };
 
   return response;
