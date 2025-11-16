@@ -37,6 +37,8 @@ serve(async (req) => {
 
   const supabase = createClient(supabaseUrl, supabaseKey);
 
+  console.log(`[${sessionId}] 🚀 Step 1: Fetching persona...`);
+  
   // Fetch persona
   const { data: persona, error: personaError } = await supabase
     .from("personas")
@@ -45,8 +47,11 @@ serve(async (req) => {
     .single();
 
   if (personaError || !persona) {
+    console.error(`[${sessionId}] ❌ Error fetching persona:`, personaError);
     return new Response("Persona not found", { status: 404 });
   }
+
+  console.log(`[${sessionId}] ✅ Step 1: Persona found - ${persona.name}`);
 
   // Build system prompt
   const difficultyDescriptions = {
@@ -93,33 +98,35 @@ RITMO DE CONVERSA:
 - Use interjeições: "ah", "hum", "entendi"
 - Seja direto e objetivo
 
-LEMBRE-SE: Esta é uma CONVERSA POR VOZ. Seja CONCISO e NATURAL como em um telefonema real.`;
+Se o vendedor demonstrar valor real, mostre interesse gradual.
+Se a abordagem for fraca ou genérica, seja mais resistente.
+
+Mantenha o papel consistente durante toda a conversa.`;
 
   // Voice mapping by persona gender/personality
   const voiceMapping: Record<string, string> = {
     // Feminine voices
-    "Marina E-commerce": "shimmer",        // Young and energetic
-    "Juliana Marketing": "coral",          // Professional and confident
-    "Fernanda RH": "alloy",                // Neutral and welcoming
-    "Patricia CFO": "coral",               // Serious and analytical
+    "Marina E-commerce": "shimmer",
+    "Juliana Marketing": "coral",
+    "Fernanda RH": "alloy",
+    "Patricia CFO": "coral",
     
     // Masculine voices
-    "André Pequeno Negócio": "echo",       // Friendly and accessible
-    "Dr. Roberto Advogado": "sage",        // Formal and authoritative
-    "Gustavo TI": "ash",                   // Technical and direct
-    "Ricardo Startup": "echo",             // Young and dynamic
-    "Carlos Industrial": "sage",           // Mature and experienced
-    "Paulo CFO": "ash",                    // Analytical and direct
+    "André Pequeno Negócio": "echo",
+    "Dr. Roberto Advogado": "sage",
+    "Gustavo TI": "ash",
+    "Ricardo Startup": "echo",
+    "Carlos Industrial": "sage",
+    "Paulo CFO": "ash",
   };
 
-  // Select voice with fallback to alloy
   const selectedVoice = voiceMapping[persona.name] || "alloy";
-  console.log(`[${sessionId}] Persona: ${persona.name}, Selected Voice: ${selectedVoice}`);
+  console.log(`[${sessionId}] ✅ Step 2: Voice selected - ${selectedVoice}`);
 
-  // Get ephemeral token from OpenAI
-  console.log("Requesting ephemeral token from OpenAI...");
-  let ephemeralKey: string;
+  // Get ephemeral token from OpenAI FIRST before any WebSocket upgrade
+  console.log(`[${sessionId}] 🔑 Step 3: Requesting ephemeral token from OpenAI...`);
   
+  let ephemeralKey: string;
   try {
     const tokenResponse = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",
@@ -130,222 +137,236 @@ LEMBRE-SE: Esta é uma CONVERSA POR VOZ. Seja CONCISO e NATURAL como em um telef
       body: JSON.stringify({
         model: "gpt-4o-realtime-preview-2024-12-17",
         voice: selectedVoice,
-        instructions: systemPrompt,
-        input_audio_format: "pcm16",
-        output_audio_format: "pcm16",
-        input_audio_transcription: {
-          model: "whisper-1"
-        },
-        turn_detection: {
-          type: "server_vad",
-          threshold: 0.5,              // ✅ Increased from 0.4 (less sensitive)
-          prefix_padding_ms: 600,      // ✅ Increased from 500
-          silence_duration_ms: 1500,   // ✅ Increased from 1200 (more tolerant)
-          create_response: true        // ✅ Auto-create response after detecting end
-        },
-        temperature: 0.9,               // Mais criativo
-        max_response_output_tokens: 150 // Limitar para respostas curtas
       }),
     });
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error("Failed to get ephemeral token:", errorText);
+      console.error(`[${sessionId}] ❌ Failed to get ephemeral token:`, errorText);
       return new Response(`Failed to initialize OpenAI session: ${errorText}`, { status: 500 });
     }
 
     const tokenData = await tokenResponse.json();
     ephemeralKey = tokenData.client_secret.value;
-    console.log("Ephemeral token obtained successfully");
+    console.log(`[${sessionId}] ✅ Step 3: Ephemeral token obtained`);
   } catch (error) {
-    console.error("Error getting ephemeral token:", error);
+    console.error(`[${sessionId}] ❌ Error getting ephemeral token:`, error);
     return new Response("Failed to initialize OpenAI session", { status: 500 });
   }
 
-  const { socket: clientSocket, response } = Deno.upgradeWebSocket(req);
-  console.log(`[${sessionId}] Client WebSocket connection established`);
-  
-  let openAISocket: WebSocket | null = null;
-  let isCleaningUp = false;
+  // Connect to OpenAI BEFORE upgrading client WebSocket
+  console.log(`[${sessionId}] 🔌 Step 4: Connecting to OpenAI WebSocket...`);
+  const openAISocket = new WebSocket(
+    `wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`,
+    {
+      headers: {
+        "Authorization": `Bearer ${ephemeralKey}`,
+        "OpenAI-Beta": "realtime=v1",
+      },
+    }
+  );
 
-  const cleanup = () => {
-    if (isCleaningUp) return;
-    isCleaningUp = true;
-    console.log(`[${sessionId}] Cleaning up resources`);
-    
-    // Send cancel command to OpenAI to stop any ongoing response
-    if (openAISocket?.readyState === WebSocket.OPEN) {
-      try {
-        console.log("Sending response.cancel to OpenAI");
-        openAISocket.send(JSON.stringify({
-          type: 'response.cancel'
-        }));
-      } catch (error) {
-        console.error("Error sending cancel command:", error);
-      }
+  // Message queue to buffer client messages until OpenAI is ready
+  const messageQueue: string[] = [];
+  let isOpenAIReady = false;
+  let sessionConfigured = false;
+  let clientSocket: WebSocket;
+
+  // Connection timeout - fail if OpenAI doesn't connect in 10 seconds
+  const connectionTimeout = setTimeout(() => {
+    if (!isOpenAIReady) {
+      console.error(`[${sessionId}] ❌ OpenAI connection timeout after 10 seconds!`);
       openAISocket.close();
+      if (clientSocket && clientSocket.readyState === WebSocket.OPEN) {
+        clientSocket.send(JSON.stringify({
+          type: "error",
+          error: "Failed to connect to AI service - timeout"
+        }));
+        clientSocket.close();
+      }
+    }
+  }, 10000);
+
+  // OpenAI socket handlers
+  openAISocket.onopen = () => {
+    console.log(`[${sessionId}] ✅ Step 4: OpenAI WebSocket connected - READY TO RECEIVE AUDIO`);
+    clearTimeout(connectionTimeout);
+    isOpenAIReady = true;
+
+    // Process any queued messages from client
+    if (messageQueue.length > 0) {
+      console.log(`[${sessionId}] 📦 Processing ${messageQueue.length} queued messages...`);
+      while (messageQueue.length > 0) {
+        const msg = messageQueue.shift();
+        if (msg && openAISocket.readyState === WebSocket.OPEN) {
+          openAISocket.send(msg);
+        }
+      }
+      console.log(`[${sessionId}] ✅ Queue processed successfully`);
     }
   };
 
-  clientSocket.onopen = () => {
-    console.log(`[${sessionId}] Client WebSocket opened`);
-    
-    // Connect to OpenAI using ephemeral token
-    const openAIUrl = `wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`;
-    
+  openAISocket.onmessage = async (event) => {
     try {
-      openAISocket = new WebSocket(openAIUrl, [
-        `realtime`,
-        `openai-insecure-api-key.${ephemeralKey}`,
-        `openai-beta.realtime-v1`
-      ]);
-      
-      console.log("Connecting to OpenAI with ephemeral token...");
-    } catch (error) {
-      console.error("Failed to create OpenAI WebSocket:", error);
-      clientSocket.send(JSON.stringify({
-        type: "error",
-        error: { message: "Connection failed" }
-      }));
-      clientSocket.close();
-      return;
-    }
+      const data = JSON.parse(event.data);
 
-    openAISocket.onopen = () => {
-      console.log("Connected to OpenAI Realtime API");
-      
-      // Notify client that connection is ready
-      clientSocket.send(JSON.stringify({
-        type: "session.created"
-      }));
-    };
-
-    openAISocket.onmessage = async (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log(`[${sessionId}] OpenAI event:`, data.type);
+      // Log critical events only
+      if (data.type === "session.created") {
+        console.log(`[${sessionId}] 🎯 Session created, configuring...`);
         
-        // ✅ Detailed logging for critical events
-        if (data.type === "response.audio.delta") {
-          console.log(`[${sessionId}] 🔊 Audio chunk received: ${data.delta?.length || 0} bytes`);
+        // Send session configuration AFTER receiving session.created
+        if (!sessionConfigured) {
+          openAISocket.send(
+            JSON.stringify({
+              type: "session.update",
+              session: {
+                instructions: systemPrompt,
+                voice: selectedVoice,
+                input_audio_format: "pcm16",
+                output_audio_format: "pcm16",
+                input_audio_transcription: {
+                  model: "whisper-1",
+                },
+                turn_detection: {
+                  type: "server_vad",
+                  threshold: 0.5,
+                  prefix_padding_ms: 600,
+                  silence_duration_ms: 1500,
+                  create_response: true,
+                },
+                temperature: 0.9,
+                max_response_output_tokens: 150,
+              },
+            })
+          );
+          sessionConfigured = true;
+          console.log(`[${sessionId}] ✅ Session configured with VAD and instructions`);
         }
+      } else if (data.type === "session.updated") {
+        console.log(`[${sessionId}] ✅ Session update confirmed`);
+      } else if (data.type === "response.audio.delta") {
+        console.log(`[${sessionId}] 🔊 Audio chunk: ${data.delta?.length || 0} bytes`);
+      } else if (data.type === "response.audio.done") {
+        console.log(`[${sessionId}] ✅ Audio response completed`);
+      } else if (data.type === "response.audio_transcript.delta") {
+        console.log(`[${sessionId}] 📝 Transcript delta: "${data.delta}"`);
+      } else if (data.type === "conversation.item.input_audio_transcription.completed") {
+        console.log(`[${sessionId}] 🎤 User said: "${data.transcript}"`);
         
-        if (data.type === "response.audio.done") {
-          console.log(`[${sessionId}] ✅ Audio response completed`);
-        }
+        // Save user message to database
+        await supabase.from("session_messages").insert({
+          session_id: sessionId,
+          role: "user",
+          content: data.transcript,
+        });
+      } else if (data.type === "response.audio_transcript.done") {
+        console.log(`[${sessionId}] 📝 Full AI transcript: "${data.transcript}"`);
         
-        if (data.type === "error") {
-          console.error(`[${sessionId}] ❌ OpenAI error:`, data.error);
+        // Save assistant message to database
+        if (data.transcript) {
+          await supabase.from("session_messages").insert({
+            session_id: sessionId,
+            role: "assistant",
+            content: data.transcript,
+          });
         }
-
-        // Forward to client
-        if (clientSocket.readyState === WebSocket.OPEN) {
-          clientSocket.send(event.data);
-        }
-
-        // Save transcriptions
-        if (data.type === "conversation.item.input_audio_transcription.completed") {
-          // Check if session is still active before saving
-          const { data: sessionCheck } = await supabase
-            .from('roleplay_sessions')
-            .select('status')
-            .eq('id', sessionId)
-            .single();
-          
-          if (sessionCheck?.status === 'active') {
-            await supabase.from("session_messages").insert({
-              session_id: sessionId,
-              role: "user",
-              content: data.transcript,
-            });
-          } else {
-            console.log(`Session ${sessionId} is no longer active, skipping user message save`);
-          }
-        }
-
-        if (data.type === "response.audio_transcript.done") {
-          // Check if session is still active before saving
-          const { data: sessionCheck } = await supabase
-            .from('roleplay_sessions')
-            .select('status')
-            .eq('id', sessionId)
-            .single();
-          
-          if (sessionCheck?.status === 'active') {
-            await supabase.from("session_messages").insert({
-              session_id: sessionId,
-              role: "assistant",
-              content: data.transcript,
-            });
-          } else {
-            console.log(`Session ${sessionId} is no longer active, skipping assistant message save`);
-          }
-        }
-      } catch (error) {
-        console.error("Error processing OpenAI message:", error);
+      } else if (data.type === "error") {
+        console.error(`[${sessionId}] ❌ OpenAI error:`, JSON.stringify(data.error));
+      } else if (data.type === "response.created") {
+        console.log(`[${sessionId}] 🤖 AI response started`);
+      } else if (data.type === "response.done") {
+        console.log(`[${sessionId}] ✅ AI response finished`);
       }
-    };
 
-    openAISocket.onerror = (error) => {
-      console.error(`[${sessionId}] OpenAI WebSocket error:`, error);
-      clientSocket.send(JSON.stringify({ type: "error", error: "OpenAI connection error" }));
-      cleanup();
-    };
+      // Forward to client
+      if (clientSocket && clientSocket.readyState === WebSocket.OPEN) {
+        clientSocket.send(event.data);
+      }
+    } catch (error) {
+      console.error(`[${sessionId}] ❌ Error handling OpenAI message:`, error);
+    }
+  };
 
-    openAISocket.onclose = () => {
-      console.log(`[${sessionId}] OpenAI disconnected`);
-      cleanup();
-    };
+  openAISocket.onerror = (error) => {
+    console.error(`[${sessionId}] ❌ OpenAI WebSocket error:`, error);
+    clearTimeout(connectionTimeout);
+  };
+
+  openAISocket.onclose = () => {
+    console.log(`[${sessionId}] ⚠️ OpenAI WebSocket closed`);
+    
+    // Attempt reconnection if client is still connected
+    if (clientSocket && clientSocket.readyState === WebSocket.OPEN && !isOpenAIReady) {
+      console.log(`[${sessionId}] 🔄 Connection failed, client will need to reconnect`);
+    }
+    
+    cleanup();
+  };
+
+  // NOW upgrade client WebSocket AFTER OpenAI setup
+  console.log(`[${sessionId}] 🔄 Step 5: Upgrading client WebSocket...`);
+  const upgradeResult = Deno.upgradeWebSocket(req);
+  clientSocket = upgradeResult.socket;
+  const response = upgradeResult.response;
+
+  // Client socket handlers
+  clientSocket.onopen = () => {
+    console.log(`[${sessionId}] ✅ Step 5: Client WebSocket connected`);
+    console.log(`[${sessionId}] 🎉 FULL SYSTEM READY - Audio pipeline established`);
   };
 
   clientSocket.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      console.log(`[${sessionId}] Received from client:`, data.type);
-      
-      // Handle session end request from client
-      if (data.type === 'session.end') {
-        console.log('Client requested session end');
+
+      if (data.type === "session.end") {
+        console.log(`[${sessionId}] 🛑 Client requested session end`);
         cleanup();
         return;
       }
-      
-      // Validate message type before forwarding to OpenAI
-      const validTypes = [
-        'session.update',
-        'input_audio_buffer.append',
-        'input_audio_buffer.commit',
-        'input_audio_buffer.clear',
-        'conversation.item.create',
-        'conversation.item.truncate',
-        'conversation.item.delete',
-        'conversation.item.retrieve',
-        'response.create',
-        'response.cancel'
-      ];
-      
-      if (!validTypes.includes(data.type)) {
-        console.log(`[${sessionId}] Ignoring unsupported message type: ${data.type}`);
-        return;
-      }
-      
-      // Forward to OpenAI if connected
-      if (openAISocket && openAISocket.readyState === WebSocket.OPEN) {
+
+      // Queue messages if OpenAI not ready yet, otherwise forward directly
+      if (!isOpenAIReady) {
+        messageQueue.push(event.data);
+        console.log(`[${sessionId}] 📦 Message queued (OpenAI not ready). Queue size: ${messageQueue.length}`);
+      } else if (openAISocket.readyState === WebSocket.OPEN) {
         openAISocket.send(event.data);
+        
+        // Only log non-audio-buffer messages to reduce noise
+        if (data.type !== "input_audio_buffer.append") {
+          console.log(`[${sessionId}] ➡️ Forwarded to OpenAI: ${data.type}`);
+        }
+      } else {
+        console.warn(`[${sessionId}] ⚠️ OpenAI socket not ready, message dropped: ${data.type}`);
       }
     } catch (error) {
-      console.error(`[${sessionId}] Error processing client message:`, error);
+      console.error(`[${sessionId}] ❌ Error handling client message:`, error);
     }
   };
 
+  clientSocket.onerror = (error) => {
+    console.error(`[${sessionId}] ❌ Client WebSocket error:`, error);
+  };
+
   clientSocket.onclose = () => {
-    console.log(`[${sessionId}] Client disconnected`);
+    console.log(`[${sessionId}] 🔌 Client WebSocket closed`);
     cleanup();
   };
 
-  clientSocket.onerror = (error) => {
-    console.error(`[${sessionId}] Client WebSocket error:`, error);
-    cleanup();
+  const cleanup = () => {
+    console.log(`[${sessionId}] 🧹 Cleaning up connections...`);
+    clearTimeout(connectionTimeout);
+    
+    if (openAISocket.readyState === WebSocket.OPEN || openAISocket.readyState === WebSocket.CONNECTING) {
+      openAISocket.close();
+    }
+    if (clientSocket && (clientSocket.readyState === WebSocket.OPEN || clientSocket.readyState === WebSocket.CONNECTING)) {
+      clientSocket.close();
+    }
+    
+    // Clear message queue
+    messageQueue.length = 0;
+    console.log(`[${sessionId}] ✅ Cleanup complete`);
   };
 
   return response;
