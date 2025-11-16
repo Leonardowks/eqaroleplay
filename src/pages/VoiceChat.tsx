@@ -84,7 +84,7 @@ const VoiceChat = () => {
           
           // 3. Destruir fila de áudio
           if (audioQueueRef.current) {
-            audioQueueRef.current.destroy();
+            await audioQueueRef.current.destroy();
             audioQueueRef.current = null;
             console.log('✅ AudioQueue destroyed');
           }
@@ -767,11 +767,7 @@ const VoiceChat = () => {
       stopRecording();
       
       if (audioQueueRef.current) {
-        audioQueueRef.current.clear();
-      }
-      
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        await audioContextRef.current.close();
+        await audioQueueRef.current.destroy();
       }
     } catch (error) {
       console.error("Error during session cleanup:", error);
