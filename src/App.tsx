@@ -16,6 +16,7 @@ const VoiceChat = lazy(() => import("./pages/VoiceChat"));
 const History = lazy(() => import("./pages/History"));
 const Ranking = lazy(() => import("./pages/Ranking"));
 const SessionDetail = lazy(() => import("./pages/SessionDetail"));
+const ActiveSessions = lazy(() => import("./pages/ActiveSessions"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Optimize React Query configuration
@@ -58,6 +59,7 @@ const App = () => (
             <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
             <Route path="/history/:sessionId" element={<ProtectedRoute><SessionDetail /></ProtectedRoute>} />
             <Route path="/ranking" element={<ProtectedRoute><Ranking /></ProtectedRoute>} />
+            <Route path="/active-sessions" element={<ProtectedRoute><ActiveSessions /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

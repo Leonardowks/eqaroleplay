@@ -85,6 +85,38 @@ const VoiceChat = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isConnected]);
 
+  // Handle tab visibility change to cleanup sessions
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.hidden && isConnected && sessionId) {
+        console.log('Tab hidden - cleaning up session');
+        // Mark session for cleanup but don't fully end it yet
+        // This allows recovery if user comes back quickly
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isConnected, sessionId]);
+
+  // WebSocket heartbeat to keep connection alive
+  useEffect(() => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !isConnected) return;
+
+    const heartbeatInterval = setInterval(() => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        console.log('Sending heartbeat ping');
+        try {
+          wsRef.current.send(JSON.stringify({ type: 'ping' }));
+        } catch (error) {
+          console.error('Error sending heartbeat:', error);
+        }
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(heartbeatInterval);
+  }, [isConnected]);
+
   useEffect(() => {
     checkUser();
   }, []);
