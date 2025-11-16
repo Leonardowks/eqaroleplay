@@ -163,8 +163,10 @@ const Roleplay = () => {
 
   const startRoleplay = (method: 'text' | 'voice') => {
     if (!selectedPersona) return;
-    // Navigate to chat page with state
-    navigate('/chat', {
+    
+    const targetPath = method === 'voice' ? '/voice-chat' : '/chat';
+    
+    navigate(targetPath, {
       state: {
         personaId: selectedPersona.id,
         personaName: selectedPersona.name,
