@@ -2,10 +2,23 @@ import { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { AudioRecorder, encodeAudioForAPI, AudioQueue } from "@/utils/RealtimeAudio";
-import { Mic, MicOff, PhoneOff, Volume2 } from "lucide-react";
+import { Mic, MicOff, PhoneOff, Volume2, ArrowLeft, Clock, Wifi, WifiOff } from "lucide-react";
 import Header from "@/components/Header";
+import Breadcrumbs from "@/components/Breadcrumbs";
+import SessionSummaryModal from "@/components/SessionSummaryModal";
 
 interface Message {
   role: "user" | "assistant";
@@ -30,6 +43,9 @@ const VoiceChat = () => {
   const [meetingType, setMeetingType] = useState<string>("");
   const [sessionStartTime, setSessionStartTime] = useState<Date>(new Date());
   const [duration, setDuration] = useState(0);
+  const [connectionAttempts, setConnectionAttempts] = useState(0);
+  const [showSummary, setShowSummary] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const recorderRef = useRef<AudioRecorder | null>(null);
@@ -203,6 +219,7 @@ const VoiceChat = () => {
 
       wsRef.current.onerror = (error) => {
         console.error("WebSocket error:", error);
+        setIsConnected(false);
         toast({
           title: "Erro de Conexão",
           description: "Não foi possível conectar ao servidor de voz",
@@ -214,6 +231,15 @@ const VoiceChat = () => {
         console.log("WebSocket closed");
         setIsConnected(false);
         stopRecording();
+
+        // Auto-retry até 3 tentativas
+        if (connectionAttempts < 3) {
+          setTimeout(() => {
+            console.log(`Tentando reconectar... (${connectionAttempts + 1}/3)`);
+            setConnectionAttempts(prev => prev + 1);
+            connectWebSocket(sessionId, personaId, meetingType);
+          }, 2000);
+        }
       };
     } catch (error) {
       console.error("Error connecting WebSocket:", error);
@@ -254,40 +280,43 @@ const VoiceChat = () => {
   };
 
   const handleEndSession = async () => {
-    stopRecording();
-    
     if (wsRef.current) {
       wsRef.current.close();
     }
-
-    audioQueueRef.current?.clear();
     
-    if (audioContextRef.current) {
+    stopRecording();
+    
+    if (audioQueueRef.current) {
+      audioQueueRef.current.clear();
+    }
+    
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
       await audioContextRef.current.close();
     }
 
+    const sessionDuration = Math.floor((Date.now() - sessionStartTime.getTime()) / 1000);
+
     if (sessionId) {
-      const durationSeconds = Math.floor((Date.now() - sessionStartTime.getTime()) / 1000);
-      
       await supabase
         .from("roleplay_sessions")
         .update({
           status: "completed",
           completed_at: new Date().toISOString(),
-          duration_seconds: durationSeconds,
-          overall_score: 75,
+          duration_seconds: sessionDuration,
         })
         .eq("id", sessionId);
+
+      // Trigger AI evaluation
+      try {
+        await supabase.functions.invoke('evaluate-competencies', {
+          body: { sessionId },
+        });
+      } catch (err) {
+        console.error('Error evaluating:', err);
+      }
     }
 
-    toast({
-      title: "Sessão Finalizada",
-      description: "Redirecionando para o dashboard...",
-    });
-
-    setTimeout(() => {
-      navigate("/dashboard");
-    }, 1500);
+    setShowSummary(true);
   };
 
   const formatDuration = (seconds: number) => {
@@ -301,14 +330,34 @@ const VoiceChat = () => {
       <Header userName={profile?.full_name} userAvatar={profile?.avatar_url} />
       
       <main className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="flex items-center gap-4 mb-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowExitConfirm(true)}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Voltar
+          </Button>
+        </div>
+
+        <Breadcrumbs />
+
         <div className="bg-card rounded-lg shadow-lg p-8">
           {/* Header Info */}
           <div className="text-center mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <Badge variant={isConnected ? "default" : "destructive"} className="gap-2">
+                {isConnected ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
+                {isConnected ? "Conectado" : connectionAttempts > 0 ? `Reconectando... (${connectionAttempts}/3)` : "Desconectado"}
+              </Badge>
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" />
+                <span className="font-mono text-xl font-bold">{formatDuration(duration)}</span>
+              </div>
+            </div>
             <h1 className="text-3xl font-bold mb-2">{personaName}</h1>
             <p className="text-muted-foreground capitalize">{meetingType.replace("_", " ")}</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Duração: {formatDuration(duration)}
-            </p>
           </div>
 
           {/* Status Visual */}
@@ -394,6 +443,35 @@ const VoiceChat = () => {
           </ul>
         </div>
       </main>
+
+      <SessionSummaryModal
+        isOpen={showSummary}
+        onClose={() => {
+          setShowSummary(false);
+          navigate('/dashboard');
+        }}
+        duration={duration}
+        sessionId={sessionId}
+      />
+
+      <AlertDialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sair da Sessão?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A sessão de voz será finalizada. Tem certeza?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => {
+              await handleEndSession();
+            }}>
+              Sim, Finalizar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
