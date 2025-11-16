@@ -5,7 +5,8 @@ import Header from '@/components/Header';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Eye, FileText } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Eye, FileText, GitCompare } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -14,7 +15,27 @@ const History = () => {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [sessions, setSessions] = useState<any[]>([]);
+  const [selectedSessions, setSelectedSessions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const handleCompare = () => {
+    if (selectedSessions.length < 2 || selectedSessions.length > 3) {
+      return;
+    }
+    navigate(`/compare?sessions=${selectedSessions.join(',')}`);
+  };
+
+  const toggleSessionSelection = (sessionId: string) => {
+    setSelectedSessions(prev => {
+      if (prev.includes(sessionId)) {
+        return prev.filter(id => id !== sessionId);
+      }
+      if (prev.length >= 3) {
+        return prev; // Máximo 3 sessões
+      }
+      return [...prev, sessionId];
+    });
+  };
 
   useEffect(() => {
     checkUser();
@@ -87,11 +108,24 @@ const History = () => {
       <Header userName={profile?.full_name} userAvatar={profile?.avatar_url} />
       
       <main className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Histórico de Sessões</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Revise suas sessões anteriores e acompanhe seu progresso.
-          </p>
+        <div className="mb-6 sm:mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Histórico de Sessões</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
+              Revise suas sessões anteriores e acompanhe seu progresso.
+            </p>
+          </div>
+          
+          {selectedSessions.length >= 2 && (
+            <Button 
+              onClick={handleCompare}
+              className="gap-2"
+              disabled={selectedSessions.length < 2 || selectedSessions.length > 3}
+            >
+              <GitCompare className="h-4 w-4" />
+              Comparar ({selectedSessions.length})
+            </Button>
+          )}
         </div>
 
         {loading ? (
@@ -114,26 +148,36 @@ const History = () => {
                 key={session.id}
                 className="p-4 sm:p-6 bg-card border-border hover:shadow-glow transition-shadow"
               >
-                <div className="flex flex-col gap-4">
-                  <div className="flex-1">
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-                      <h3 className="text-base sm:text-lg font-bold">
-                        {getMeetingTypeLabel(session.meeting_type)}
-                      </h3>
-                      {getMethodBadge(session.method)}
-                    </div>
-                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                      <span>
-                        📅 {format(new Date(session.completed_at), "dd 'de' MMMM, yyyy", { locale: ptBR })}
-                      </span>
-                      <span>
-                        🕐 {format(new Date(session.completed_at), 'HH:mm', { locale: ptBR })}
-                      </span>
-                      <span>
-                        ⏱️ {Math.floor(session.duration_seconds / 60)}min {session.duration_seconds % 60}s
-                      </span>
-                    </div>
+                <div className="flex items-start gap-4">
+                  {/* Checkbox para comparação */}
+                  <div className="pt-1">
+                    <Checkbox
+                      checked={selectedSessions.includes(session.id)}
+                      onCheckedChange={() => toggleSessionSelection(session.id)}
+                      disabled={!selectedSessions.includes(session.id) && selectedSessions.length >= 3}
+                    />
                   </div>
+
+                  <div className="flex-1 flex flex-col gap-4">
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                        <h3 className="text-base sm:text-lg font-bold">
+                          {getMeetingTypeLabel(session.meeting_type)}
+                        </h3>
+                        {getMethodBadge(session.method)}
+                      </div>
+                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                        <span>
+                          📅 {format(new Date(session.completed_at), "dd 'de' MMMM, yyyy", { locale: ptBR })}
+                        </span>
+                        <span>
+                          🕐 {format(new Date(session.completed_at), 'HH:mm', { locale: ptBR })}
+                        </span>
+                        <span>
+                          ⏱️ {Math.floor(session.duration_seconds / 60)}min {session.duration_seconds % 60}s
+                        </span>
+                      </div>
+                    </div>
 
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                     <div className="text-center px-4 py-2 bg-muted/30 rounded-lg flex-shrink-0">
@@ -163,6 +207,7 @@ const History = () => {
                         Transcrição
                       </Button>
                     </div>
+                  </div>
                   </div>
                 </div>
               </Card>

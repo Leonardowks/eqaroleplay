@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievement_definitions: {
+        Row: {
+          badge_color: string | null
+          category: string
+          created_at: string | null
+          criteria: Json
+          description: string
+          icon: string
+          id: string
+          name: string
+          reward_points: number | null
+        }
+        Insert: {
+          badge_color?: string | null
+          category: string
+          created_at?: string | null
+          criteria: Json
+          description: string
+          icon: string
+          id: string
+          name: string
+          reward_points?: number | null
+        }
+        Update: {
+          badge_color?: string | null
+          category?: string
+          created_at?: string | null
+          criteria?: Json
+          description?: string
+          icon?: string
+          id?: string
+          name?: string
+          reward_points?: number | null
+        }
+        Relationships: []
+      }
       competency_criteria: {
         Row: {
           competency_name: string
@@ -455,6 +491,10 @@ export type Database = {
       }
     }
     Functions: {
+      check_and_unlock_achievements: {
+        Args: { _session_id: string; _user_id: string }
+        Returns: undefined
+      }
       cleanup_abandoned_sessions: { Args: never; Returns: undefined }
       cleanup_abandoned_voice_sessions: { Args: never; Returns: undefined }
       has_role: {
