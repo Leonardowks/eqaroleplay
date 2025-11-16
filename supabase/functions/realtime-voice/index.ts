@@ -138,9 +138,10 @@ LEMBRE-SE: Esta é uma CONVERSA POR VOZ. Seja CONCISO e NATURAL como em um telef
         },
         turn_detection: {
           type: "server_vad",
-          threshold: 0.4,              // Menos sensível para evitar cortes
-          prefix_padding_ms: 500,      // Mais padding para capturar início
-          silence_duration_ms: 1200    // Mais tempo antes de detectar fim
+          threshold: 0.5,              // ✅ Increased from 0.4 (less sensitive)
+          prefix_padding_ms: 600,      // ✅ Increased from 500
+          silence_duration_ms: 1500,   // ✅ Increased from 1200 (more tolerant)
+          create_response: true        // ✅ Auto-create response after detecting end
         },
         temperature: 0.9,               // Mais criativo
         max_response_output_tokens: 150 // Limitar para respostas curtas
@@ -222,7 +223,20 @@ LEMBRE-SE: Esta é uma CONVERSA POR VOZ. Seja CONCISO e NATURAL como em um telef
     openAISocket.onmessage = async (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log("OpenAI event:", data.type);
+        console.log(`[${sessionId}] OpenAI event:`, data.type);
+        
+        // ✅ Detailed logging for critical events
+        if (data.type === "response.audio.delta") {
+          console.log(`[${sessionId}] 🔊 Audio chunk received: ${data.delta?.length || 0} bytes`);
+        }
+        
+        if (data.type === "response.audio.done") {
+          console.log(`[${sessionId}] ✅ Audio response completed`);
+        }
+        
+        if (data.type === "error") {
+          console.error(`[${sessionId}] ❌ OpenAI error:`, data.error);
+        }
 
         // Forward to client
         if (clientSocket.readyState === WebSocket.OPEN) {
