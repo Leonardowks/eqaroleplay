@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
+import { WebSocket as WSClient } from "https://esm.sh/ws@8.18.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -154,17 +155,18 @@ Mantenha o papel consistente durante toda a conversa.`;
     return new Response("Failed to initialize OpenAI session", { status: 500 });
   }
 
-  // Connect to OpenAI BEFORE upgrading client WebSocket
+  // Connect to OpenAI BEFORE upgrading client WebSocket using ws library for header support
   console.log(`[${sessionId}] 🔌 Step 4: Connecting to OpenAI WebSocket...`);
-  const openAISocket = new WebSocket(
-    `wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`,
-    {
-      headers: {
-        "Authorization": `Bearer ${ephemeralKey}`,
-        "OpenAI-Beta": "realtime=v1",
-      },
-    }
-  );
+  
+  // Use ws library which supports headers (unlike native Deno WebSocket)
+  const openAIWsUrl = `wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`;
+  
+  const openAISocket = new WSClient(openAIWsUrl, {
+    headers: {
+      "Authorization": `Bearer ${ephemeralKey}`,
+      "OpenAI-Beta": "realtime=v1",
+    },
+  }) as any; // Type as any to work with Deno's WebSocket interface
 
   // Message queue to buffer client messages until OpenAI is ready
   const messageQueue: string[] = [];
@@ -206,7 +208,7 @@ Mantenha o papel consistente durante toda a conversa.`;
     }
   };
 
-  openAISocket.onmessage = async (event) => {
+  openAISocket.onmessage = async (event: any) => {
     try {
       const data = JSON.parse(event.data);
 
@@ -287,7 +289,7 @@ Mantenha o papel consistente durante toda a conversa.`;
     }
   };
 
-  openAISocket.onerror = (error) => {
+  openAISocket.onerror = (error: any) => {
     console.error(`[${sessionId}] ❌ OpenAI WebSocket error:`, error);
     clearTimeout(connectionTimeout);
   };
