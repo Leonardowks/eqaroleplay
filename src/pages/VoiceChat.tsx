@@ -498,11 +498,16 @@ const VoiceChat = () => {
           if (typeof data.error === 'string') {
             errorMessage = data.error;
           } else if (data.error && typeof data.error === 'object') {
+            const errorCode = data.error.code || "";
             errorMessage = data.error.message || "Erro desconhecido";
             errorDetails = data.error.details || "";
             
-            // Check if it's a recoverable error
-            if (data.error.recoverable) {
+            // Provide specific messages for common errors
+            if (errorCode === "rate_limit_exceeded") {
+              errorMessage = "Limite de uso excedido - tente novamente em alguns instantes";
+            } else if (errorCode === "invalid_request_error") {
+              errorMessage = "Erro de configuração - reinicie a sessão";
+            } else if (data.error.recoverable) {
               console.log("[WebSocket] Error is recoverable, connection maintained");
               errorMessage = "Problema temporário detectado - conexão mantida";
             }

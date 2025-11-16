@@ -128,10 +128,10 @@ Mantenha o papel consistente durante toda a conversa.`;
   
   let ephemeralKey: string;
   try {
-    console.log(`[${sessionId}] 🎯 Step 3: Requesting ephemeral token with full configuration...`);
-    console.log(`[${sessionId}] 📋 Ephemeral token format: model=gpt-4o-realtime-preview-2024-12-17, voice=${selectedVoice}`);
+    console.log(`[${sessionId}] 🎯 Step 3: Requesting ephemeral token with session configuration...`);
+    console.log(`[${sessionId}] 📋 Token format: voice=${selectedVoice}, modalities, VAD enabled`);
     
-    const tokenResponse = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
+    const tokenResponse = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${openAIKey}`,
@@ -140,21 +140,6 @@ Mantenha o papel consistente durante toda a conversa.`;
       body: JSON.stringify({
         model: "gpt-4o-realtime-preview-2024-12-17",
         voice: selectedVoice,
-        instructions: systemPrompt,
-        modalities: ["text", "audio"],
-        input_audio_format: "pcm16",
-        output_audio_format: "pcm16",
-        input_audio_transcription: {
-          model: "whisper-1"
-        },
-        turn_detection: {
-          type: "server_vad",
-          threshold: 0.5,
-          prefix_padding_ms: 600,
-          silence_duration_ms: 1500
-        },
-        temperature: 0.9,
-        max_response_output_tokens: 150
       }),
     });
 
@@ -170,10 +155,7 @@ Mantenha o papel consistente durante toda a conversa.`;
     console.log(`[${sessionId}] 📋 Token response structure:`, JSON.stringify({
       hasValue: !!ephemeralKey,
       hasClientSecret: !!tokenData.client_secret,
-      model: tokenData.model,
-      voice: tokenData.voice,
-      modalities: tokenData.modalities,
-      fullConfigIncluded: true
+      tokenLength: ephemeralKey?.length || 0,
     }, null, 2));
   } catch (error) {
     console.error(`[${sessionId}] ❌ Error getting ephemeral token:`, error);
@@ -238,52 +220,94 @@ Mantenha o papel consistente durante toda a conversa.`;
 
       // Log critical events with details
       if (data.type === "session.created") {
-        console.log(`[${sessionId}] 🎯 Session created with ephemeral token configuration`);
-        console.log(`[${sessionId}] 📋 Active session config:`, JSON.stringify({
+        console.log(`[${sessionId}] 🎯 Session created, configuring with session.update...`);
+        console.log(`[${sessionId}] 📋 Initial session:`, JSON.stringify({
           model: data.session?.model,
           voice: data.session?.voice,
           modalities: data.session?.modalities,
-          turn_detection: data.session?.turn_detection,
-          input_audio_format: data.session?.input_audio_format,
-          output_audio_format: data.session?.output_audio_format,
         }, null, 2));
         
-        // Marcar como configurado - todas as configurações já foram enviadas no ephemeral token
-        sessionConfigured = true;
-        console.log(`[${sessionId}] ✅ System ready - no session.update needed (using ephemeral token config)`);
-      } else if (data.type === "error") {
-        console.error(`[${sessionId}] ❌ OpenAI error received:`, JSON.stringify(data.error, null, 2));
-        
-        // Handle specific error types
-        if (data.error?.param?.includes("session.")) {
-          console.error(`[${sessionId}] ⚠️ Session configuration error detected:`, {
-            param: data.error.param,
-            message: data.error.message,
-            code: data.error.code
-          });
-          console.log(`[${sessionId}] 🔄 Continuing with ephemeral token configuration (fallback mode)`);
-          // Don't close connection - system can work with ephemeral token config
-          sessionConfigured = true;
-        } else if (data.error?.type === "invalid_request_error") {
-          console.error(`[${sessionId}] ⚠️ Invalid request error:`, data.error.message);
-          // Log but don't crash - let the connection continue
-        } else {
-          console.error(`[${sessionId}] ⚠️ General OpenAI error:`, {
-            type: data.error?.type,
-            message: data.error?.message,
-            code: data.error?.code
-          });
+        // Send complete configuration via session.update
+        try {
+          const sessionConfig = {
+            type: "session.update",
+            session: {
+              modalities: ["text", "audio"],
+              instructions: systemPrompt,
+              voice: selectedVoice,
+              input_audio_format: "pcm16",
+              output_audio_format: "pcm16",
+              input_audio_transcription: {
+                model: "whisper-1",
+              },
+              turn_detection: {
+                type: "server_vad",
+                threshold: 0.5,
+                prefix_padding_ms: 600,
+                silence_duration_ms: 1500,
+              },
+              temperature: 0.9,
+              max_response_output_tokens: 150,
+            },
+          };
+          
+          console.log(`[${sessionId}] 📤 Sending session.update...`);
+          openAISocket.send(JSON.stringify(sessionConfig));
+          console.log(`[${sessionId}] ✅ session.update sent successfully`);
+        } catch (error) {
+          console.error(`[${sessionId}] ❌ Failed to send session.update:`, error);
+          // Don't mark as configured if update fails
+          if (clientSocket && clientSocket.readyState === WebSocket.OPEN) {
+            clientSocket.send(JSON.stringify({
+              type: "error",
+              error: {
+                message: "Failed to configure session",
+                recoverable: false
+              }
+            }));
+          }
+          return;
         }
+      } else if (data.type === "session.updated") {
+        console.log(`[${sessionId}] ✅ Session configuration confirmed`);
+        sessionConfigured = true;
+        console.log(`[${sessionId}] 🎉 System fully operational`);
+      } else if (data.type === "error") {
+        console.error(`[${sessionId}] ❌ OpenAI error:`, JSON.stringify(data.error, null, 2));
         
-        // Forward error to client for visibility
+        // Categorize error types
+        const errorType = data.error?.type || "unknown";
+        const errorCode = data.error?.code || "unknown";
+        const errorMessage = data.error?.message || "Unknown error";
+        
+        console.error(`[${sessionId}] 📋 Error details:`, {
+          type: errorType,
+          code: errorCode,
+          message: errorMessage,
+          param: data.error?.param,
+        });
+        
+        // Determine if error is recoverable
+        const recoverableErrors = ["rate_limit_exceeded", "server_error"];
+        const isRecoverable = recoverableErrors.includes(errorCode) || errorType === "server_error";
+        
+        // Forward simplified error to client
         if (clientSocket && clientSocket.readyState === WebSocket.OPEN) {
           clientSocket.send(JSON.stringify({
             type: "error",
             error: {
-              message: "OpenAI error occurred, but connection is maintained",
-              details: data.error?.message,
+              message: errorMessage,
+              code: errorCode,
+              recoverable: isRecoverable
             }
           }));
+        }
+        
+        // Log but don't crash - let system continue unless critical
+        if (!isRecoverable && errorType === "invalid_request_error") {
+          console.error(`[${sessionId}] 🚨 Critical error - cannot continue`);
+        } else {
+          console.log(`[${sessionId}] ⚠️ Non-critical error - continuing...`);
         }
       } else if (data.type === "response.audio.delta") {
         console.log(`[${sessionId}] 🔊 Audio chunk: ${data.delta?.length || 0} bytes`);
