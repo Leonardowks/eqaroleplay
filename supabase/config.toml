@@ -2,3 +2,6 @@ project_id = "wzronlqzkxqzohugajvz"
 
 [functions.chat-roleplay]
 verify_jwt = true
+
+[functions.realtime-voice]
+verify_jwt = false
