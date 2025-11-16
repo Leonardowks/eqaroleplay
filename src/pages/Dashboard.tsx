@@ -9,6 +9,8 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import SPINEvolutionChart from '@/components/SPINEvolutionChart';
+import CompetencyHeatmap from '@/components/CompetencyHeatmap';
 
 // Lazy load chart component to reduce initial bundle
 const CompetencyChart = lazy(() => import('@/components/CompetencyChart'));
@@ -28,6 +30,8 @@ const Dashboard = () => {
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
   const [competencyData, setCompetencyData] = useState<any[]>([]);
   const [activeSessionsCount, setActiveSessionsCount] = useState(0);
+  const [spinEvolution, setSpinEvolution] = useState<any[]>([]);
+  const [heatmapData, setHeatmapData] = useState<any[]>([]);
 
   useEffect(() => {
     checkUser();
@@ -109,6 +113,143 @@ const Dashboard = () => {
     }));
     
     setCompetencyData(mockData);
+
+    // Load SPIN evolution data
+    loadSpinEvolution();
+    // Load heatmap data
+    loadHeatmapData();
+  };
+
+  const loadSpinEvolution = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('competency_scores')
+      .select(`
+        session_id,
+        score,
+        spin_category,
+        roleplay_sessions!inner (
+          completed_at,
+          user_id
+        )
+      `)
+      .eq('roleplay_sessions.user_id', user.id)
+      .not('spin_category', 'is', null)
+      .order('roleplay_sessions.completed_at', { ascending: true });
+
+    if (!data || data.length === 0) {
+      setSpinEvolution([]);
+      return;
+    }
+
+    // Agrupar por data e spin_category
+    const grouped: Record<string, any> = {};
+    
+    data.forEach((item: any) => {
+      const date = new Date(item.roleplay_sessions.completed_at).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+      });
+      
+      if (!grouped[date]) {
+        grouped[date] = { 
+          date,
+          situation: [],
+          problem: [],
+          implication: [],
+          need_payoff: []
+        };
+      }
+      
+      if (item.spin_category && grouped[date][item.spin_category]) {
+        grouped[date][item.spin_category].push(item.score);
+      }
+    });
+
+    // Calcular médias
+    const evolutionData = Object.values(grouped).map((day: any) => ({
+      date: day.date,
+      situation: day.situation.length > 0 
+        ? Math.round(day.situation.reduce((a: number, b: number) => a + b, 0) / day.situation.length) 
+        : 0,
+      problem: day.problem.length > 0 
+        ? Math.round(day.problem.reduce((a: number, b: number) => a + b, 0) / day.problem.length) 
+        : 0,
+      implication: day.implication.length > 0 
+        ? Math.round(day.implication.reduce((a: number, b: number) => a + b, 0) / day.implication.length) 
+        : 0,
+      need_payoff: day.need_payoff.length > 0 
+        ? Math.round(day.need_payoff.reduce((a: number, b: number) => a + b, 0) / day.need_payoff.length) 
+        : 0,
+    }));
+
+    setSpinEvolution(evolutionData);
+  };
+
+  const loadHeatmapData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('competency_scores')
+      .select(`
+        competency_name,
+        score,
+        roleplay_sessions!inner (
+          meeting_type,
+          user_id
+        )
+      `)
+      .eq('roleplay_sessions.user_id', user.id);
+
+    if (!data || data.length === 0) {
+      setHeatmapData([]);
+      return;
+    }
+
+    // Agrupar por meeting_type
+    const grouped: Record<string, any> = {};
+    
+    data.forEach((item: any) => {
+      const type = item.roleplay_sessions.meeting_type;
+      if (!grouped[type]) {
+        grouped[type] = { 
+          meetingType: type,
+          abertura: [],
+          descoberta: [],
+          problemas: [],
+          implicacao: [],
+          valor: [],
+          objecoes: [],
+          fechamento: []
+        };
+      }
+      
+      // Mapear competências para keys do heatmap
+      const compName = item.competency_name.toLowerCase();
+      if (compName.includes('abertura')) grouped[type].abertura.push(item.score);
+      else if (compName.includes('situação') || compName.includes('descoberta')) grouped[type].descoberta.push(item.score);
+      else if (compName.includes('problema')) grouped[type].problemas.push(item.score);
+      else if (compName.includes('implicação')) grouped[type].implicacao.push(item.score);
+      else if (compName.includes('valor') || compName.includes('apresentação')) grouped[type].valor.push(item.score);
+      else if (compName.includes('objeç')) grouped[type].objecoes.push(item.score);
+      else if (compName.includes('fechamento')) grouped[type].fechamento.push(item.score);
+    });
+
+    // Calcular médias
+    const result = Object.values(grouped).map((item: any) => {
+      const output: any = { meetingType: item.meetingType };
+      ['abertura', 'descoberta', 'problemas', 'implicacao', 'valor', 'objecoes', 'fechamento'].forEach((key) => {
+        if (item[key].length > 0) {
+          output[key] = Math.round(item[key].reduce((a: number, b: number) => a + b, 0) / item[key].length);
+        }
+      });
+      return output;
+    });
+
+    setHeatmapData(result);
   };
 
   // Cleanup orphaned sessions
@@ -246,6 +387,16 @@ const Dashboard = () => {
             <h3 className="text-xl sm:text-2xl font-bold mb-1 text-primary">+{stats.evolution}%</h3>
             <p className="text-xs sm:text-sm text-muted-foreground">Taxa de Evolução</p>
           </Card>
+        </div>
+
+        {/* SPIN Evolution Chart */}
+        <div className="mb-6 sm:mb-8">
+          <SPINEvolutionChart data={spinEvolution} />
+        </div>
+
+        {/* Competency Heatmap */}
+        <div className="mb-6 sm:mb-8">
+          <CompetencyHeatmap data={heatmapData} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">
