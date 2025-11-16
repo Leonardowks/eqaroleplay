@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import SPINEvolutionChart from '@/components/SPINEvolutionChart';
 import CompetencyHeatmap from '@/components/CompetencyHeatmap';
+import { generatePerformanceReport } from '@/utils/pdfGenerator';
+import { FileText, Download } from 'lucide-react';
 
 // Lazy load chart component to reduce initial bundle
 const CompetencyChart = lazy(() => import('@/components/CompetencyChart'));
@@ -32,6 +34,7 @@ const Dashboard = () => {
   const [activeSessionsCount, setActiveSessionsCount] = useState(0);
   const [spinEvolution, setSpinEvolution] = useState<any[]>([]);
   const [heatmapData, setHeatmapData] = useState<any[]>([]);
+  const [generatingReport, setGeneratingReport] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -295,6 +298,36 @@ const Dashboard = () => {
     }
   };
 
+  const handleGenerateReport = async () => {
+    if (!user || !profile) return;
+    
+    setGeneratingReport(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-insights', {
+        body: { userId: user.id }
+      });
+
+      if (error) throw error;
+
+      if (data && data.analysis) {
+        generatePerformanceReport(data, profile.full_name);
+        toast({
+          title: "Relatório gerado!",
+          description: "Seu relatório PDF foi baixado com sucesso.",
+        });
+      }
+    } catch (error) {
+      console.error('Error generating report:', error);
+      toast({
+        title: "Erro ao gerar relatório",
+        description: "Não foi possível gerar o relatório. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
+
   // Memoize meeting type labels for better performance
   const getMeetingTypeLabel = useMemo(() => {
     const labels: Record<string, string> = {
@@ -315,35 +348,29 @@ const Dashboard = () => {
         <div className="mb-8 flex flex-col sm:flex-row justify-between items-start gap-4">
           <div>
             <h1 className="text-3xl font-bold mb-2">
-              Olá, {profile?.full_name || 'Vendedor'}! 👋
+              Olá, {profile?.full_name || 'Usuário'}! 👋
             </h1>
             <p className="text-muted-foreground">
-              Confira seu desempenho e continue treinando.
+              Acompanhe seu progresso e desempenho
             </p>
           </div>
-          <div className="flex gap-2">
-            {activeSessionsCount > 0 && (
-              <Button 
-                onClick={() => navigate('/active-sessions')}
-                variant="secondary"
-                size="sm"
-                className="gap-2"
-              >
-                <Clock className="w-4 h-4" />
-                {activeSessionsCount} Sessão(ões) Ativa(s)
-              </Button>
+          <Button 
+            onClick={handleGenerateReport} 
+            disabled={generatingReport || stats.totalSessions === 0}
+            className="gap-2"
+          >
+            {generatingReport ? (
+              <>
+                <Download className="h-4 w-4 animate-spin" />
+                Gerando...
+              </>
+            ) : (
+              <>
+                <FileText className="h-4 w-4" />
+                Gerar Relatório PDF
+              </>
             )}
-            <Button 
-              onClick={cleanupSessions}
-              variant="outline"
-              size="sm"
-              disabled={isCleaningUp}
-              className="gap-2"
-            >
-              <Trash2 className="w-4 h-4" />
-              {isCleaningUp ? 'Limpando...' : 'Limpar Órfãs'}
-            </Button>
-          </div>
+          </Button>
         </div>
 
         {/* Metrics cards */}

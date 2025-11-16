@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.cleanup-sessions]
 verify_jwt = true
+
+[functions.evaluate-competencies]
+verify_jwt = true
+
+[functions.generate-insights]
+verify_jwt = true
