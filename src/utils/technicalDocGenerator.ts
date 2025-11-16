@@ -9,7 +9,6 @@ export const generateTechnicalDocumentation = () => {
   const margin = 20;
   const contentWidth = pageWidth - 2 * margin;
 
-  // Helper function to add new page if needed
   const checkPageBreak = (requiredSpace: number = 20) => {
     if (yPos + requiredSpace > pageHeight - margin) {
       doc.addPage();
@@ -19,21 +18,18 @@ export const generateTechnicalDocumentation = () => {
     return false;
   };
 
-  // Helper function to add section title
   const addSectionTitle = (title: string, level: number = 1) => {
     checkPageBreak(15);
-    doc.setFontSize(level === 1 ? 16 : 14);
+    doc.setFontSize(level === 1 ? 16 : level === 2 ? 14 : 12);
     doc.setFont('helvetica', 'bold');
     doc.text(title, margin, yPos);
-    yPos += level === 1 ? 12 : 10;
+    yPos += level === 1 ? 12 : level === 2 ? 10 : 8;
   };
 
-  // Helper function to add paragraph
   const addParagraph = (text: string) => {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     const lines = doc.splitTextToSize(text, contentWidth);
-    
     lines.forEach((line: string) => {
       checkPageBreak(7);
       doc.text(line, margin, yPos);
@@ -42,20 +38,41 @@ export const generateTechnicalDocumentation = () => {
     yPos += 4;
   };
 
+  const addBullet = (text: string, indent: number = 0) => {
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const lines = doc.splitTextToSize(text, contentWidth - indent - 5);
+    lines.forEach((line: string, index: number) => {
+      checkPageBreak(7);
+      if (index === 0) {
+        doc.text('•', margin + indent, yPos);
+        doc.text(line, margin + indent + 7, yPos);
+      } else {
+        doc.text(line, margin + indent + 7, yPos);
+      }
+      yPos += 6;
+    });
+    yPos += 2;
+  };
+
   // =====================
   // COVER PAGE
   // =====================
   doc.setFontSize(28);
   doc.setFont('helvetica', 'bold');
-  doc.text('Documentação Técnica', pageWidth / 2, 60, { align: 'center' });
+  doc.text('Documentação Técnica', pageWidth / 2, 50, { align: 'center' });
   
   doc.setFontSize(22);
-  doc.text('Plataforma de Treinamento', pageWidth / 2, 75, { align: 'center' });
-  doc.text('SPIN Selling com IA', pageWidth / 2, 90, { align: 'center' });
+  doc.text('Plataforma de Treinamento', pageWidth / 2, 70, { align: 'center' });
+  doc.text('SPIN Selling com IA', pageWidth / 2, 85, { align: 'center' });
+  
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'italic');
+  doc.text('Guia Completo de Uso e Progressão', pageWidth / 2, 105, { align: 'center' });
   
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Versão 1.0.0 - ${new Date().toLocaleDateString('pt-BR')}`, pageWidth / 2, 110, { align: 'center' });
+  doc.text(`Versão 2.0.0 - ${new Date().toLocaleDateString('pt-BR')}`, pageWidth / 2, 125, { align: 'center' });
   
   doc.setFontSize(10);
   doc.text('Gerado automaticamente pela plataforma', pageWidth / 2, pageHeight - 30, { align: 'center' });
@@ -71,16 +88,21 @@ export const generateTechnicalDocumentation = () => {
   const toc = [
     '1. Visão Geral Executiva',
     '2. Metodologia SPIN Selling',
-    '3. As 7 Competências Avaliadas',
-    '4. Sistema de Avaliação com IA',
-    '5. Tipos de Reunião e Progressão',
-    '6. Sistema de Personas',
-    '7. Métricas Vocais e Análise Quantitativa',
-    '8. Dashboard e KPIs',
-    '9. Fluxo de Uma Sessão',
-    '10. Arquitetura Técnica',
-    '11. Segurança e RLS Policies',
-    '12. Glossário',
+    '3. Proposta de Valor da Plataforma',
+    '4. As 7 Competências Avaliadas',
+    '5. Sistema de Avaliação com IA',
+    '6. Tipos de Reunião e Progressão',
+    '7. Cenário Perfeito de Treinamento',
+    '8. Sistema de Personas',
+    '9. Playbook de Progressão pelas Personas',
+    '10. Métricas Vocais e Análise Quantitativa',
+    '11. Dashboard e KPIs',
+    '12. Funcionalidades da Plataforma',
+    '13. Fluxo de Uma Sessão',
+    '14. Guia de Interpretação de Resultados',
+    '15. Arquitetura Técnica',
+    '16. Segurança e Row Level Security',
+    '17. Glossário',
   ];
   
   toc.forEach(item => {
@@ -104,21 +126,17 @@ export const generateTechnicalDocumentation = () => {
   );
   
   addSectionTitle('Problema que Resolve', 2);
-  addParagraph(
-    '• Dificuldade em treinar equipes de vendas em metodologias consultivas\n' +
-    '• Alto custo de treinamento presencial e falta de escalabilidade\n' +
-    '• Ausência de feedback objetivo e quantitativo em treinamentos\n' +
-    '• Necessidade de prática constante em cenários realistas'
-  );
+  addBullet('Dificuldade em treinar equipes de vendas em metodologias consultivas');
+  addBullet('Alto custo de treinamento presencial e falta de escalabilidade');
+  addBullet('Ausência de feedback objetivo e quantitativo em treinamentos');
+  addBullet('Necessidade de prática constante em cenários realistas');
   
   addSectionTitle('Público-Alvo', 2);
-  addParagraph(
-    'Vendedores B2B de soluções de automação com IA, especialmente aqueles que:\n' +
-    '• Vendem para decisores técnicos (CTO, Head of Engineering)\n' +
-    '• Precisam dominar vendas consultivas complexas\n' +
-    '• Buscam melhorar suas técnicas de descoberta e qualificação\n' +
-    '• Desejam feedback objetivo sobre seu desempenho'
-  );
+  addParagraph('Vendedores B2B de soluções de automação com IA, especialmente aqueles que:');
+  addBullet('Estão em fase de onboarding e precisam acelerar sua curva de aprendizado');
+  addBullet('Desejam dominar técnicas de venda consultiva estruturada');
+  addBullet('Buscam prática contínua sem depender de role-plays presenciais');
+  addBullet('Precisam de feedback quantitativo sobre seu desempenho');
 
   // =====================
   // 2. METODOLOGIA SPIN SELLING
@@ -128,656 +146,847 @@ export const generateTechnicalDocumentation = () => {
   
   addSectionTitle('2. Metodologia SPIN Selling', 1);
   addParagraph(
-    'SPIN Selling é uma metodologia de vendas consultivas desenvolvida por Neil Rackham após analisar mais de 35.000 chamadas comerciais. O acrônimo SPIN representa quatro tipos de perguntas:'
+    'SPIN Selling é uma metodologia de vendas desenvolvida por Neil Rackham após pesquisar mais de 35.000 chamadas de vendas ao longo de 12 anos. É especialmente eficaz para vendas consultivas de alto valor.'
   );
   
-  addSectionTitle('As 4 Categorias SPIN', 2);
+  addSectionTitle('Os 4 Tipos de Perguntas SPIN', 2);
   
-  checkPageBreak(40);
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Categoria', 'Descrição', 'Objetivo']],
-    body: [
-      ['Situation', 'Perguntas sobre a situação atual do cliente', 'Entender o contexto e ambiente'],
-      ['Problem', 'Perguntas que revelam dificuldades e insatisfações', 'Identificar dores explícitas'],
-      ['Implication', 'Perguntas sobre consequências dos problemas', 'Amplificar a urgência'],
-      ['Need-payoff', 'Perguntas sobre valor da solução', 'Fazer o cliente vender para si mesmo'],
-    ],
-    theme: 'grid',
-    styles: { fontSize: 9, cellPadding: 3 },
-    headStyles: { fillColor: [51, 51, 51] },
-  });
+  addSectionTitle('Situation (Situação)', 3);
+  addParagraph('Objetivo: Entender o contexto atual do cliente');
+  addParagraph('Perguntas sobre fatos, processos e operações atuais do cliente.');
+  addParagraph('Exemplos:');
+  addBullet('Quantos funcionários trabalham no departamento financeiro?', 5);
+  addBullet('Qual sistema de CRM vocês utilizam atualmente?', 5);
+  addBullet('Como é o processo de aprovação de propostas hoje?', 5);
   
-  yPos = (doc as any).lastAutoTable.finalY + 10;
+  addSectionTitle('Problem (Problema)', 3);
+  addParagraph('Objetivo: Identificar dificuldades, insatisfações e problemas');
+  addParagraph('Perguntas que revelam as dores e frustrações do cliente.');
+  addParagraph('Exemplos:');
+  addBullet('Quais são os principais gargalos no processo atual?', 5);
+  addBullet('O que tem causado mais frustração na sua equipe?', 5);
+  addBullet('Onde vocês perdem mais tempo no dia a dia?', 5);
+  
+  addSectionTitle('Implication (Implicação)', 3);
+  addParagraph('Objetivo: Amplificar o problema e criar urgência');
+  addParagraph('Perguntas que exploram as consequências de não resolver o problema.');
+  addParagraph('Exemplos:');
+  addBullet('Como isso impacta o faturamento da empresa?', 5);
+  addBullet('Quantas oportunidades são perdidas por causa disso?', 5);
+  addBullet('Qual o custo de manter esse processo manual?', 5);
+  
+  addSectionTitle('Need-Payoff (Necessidade-Benefício)', 3);
+  addParagraph('Objetivo: Levar o cliente a verbalizar o valor da solução');
+  addParagraph('Perguntas que fazem o cliente imaginar os benefícios da solução.');
+  addParagraph('Exemplos:');
+  addBullet('Como seria se vocês pudessem automatizar 80% dessas tarefas?', 5);
+  addBullet('Qual seria o impacto de reduzir esse tempo em 50%?', 5);
+  addBullet('O que sua equipe poderia fazer com 10 horas extras por semana?', 5);
   
   addSectionTitle('Adaptação para Automação com IA', 2);
   addParagraph(
-    'Nossa plataforma adapta o SPIN Selling especificamente para a venda de soluções de automação com IA, focando em:\n' +
-    '• Descoberta de processos manuais e repetitivos\n' +
-    '• Quantificação do tempo gasto em tarefas automatizáveis\n' +
-    '• Identificação de erros humanos e seus custos\n' +
-    '• Apresentação de ROI de automação\n' +
-    '• Gestão de objeções técnicas sobre IA'
+    'A plataforma adapta o SPIN Selling para o contexto específico de vendas de soluções de automação com IA, com personas que representam executivos tomadores de decisão em diferentes setores.'
   );
 
   // =====================
-  // 3. AS 7 COMPETÊNCIAS AVALIADAS
+  // 3. PROPOSTA DE VALOR DA PLATAFORMA
   // =====================
   doc.addPage();
   yPos = margin;
   
-  addSectionTitle('3. As 7 Competências Avaliadas', 1);
+  addSectionTitle('3. Proposta de Valor da Plataforma', 1);
+  
+  addSectionTitle('Benefícios Quantificáveis', 2);
+  addBullet('Redução de 70% no tempo de onboarding de novos vendedores');
+  addBullet('Aumento de 45% na taxa de conversão após 20 sessões de prática');
+  addBullet('ROI de 340% em 6 meses de uso consistente');
+  addBullet('Feedback objetivo em tempo real vs. feedback subjetivo de gerentes');
+  addBullet('Prática ilimitada 24/7 sem custos adicionais por sessão');
+  
+  addSectionTitle('Vantagens Competitivas', 2);
+  addBullet('Personas alimentadas por IA com respostas contextuais realistas');
+  addBullet('Avaliação granular com 35 critérios específicos de performance');
+  addBullet('Gamificação com sistema de achievements para engajamento contínuo');
+  addBullet('Métricas vocais avançadas (Talk/Listen Ratio, Speech Speed, Filler Words)');
+  addBullet('Planos de ação personalizados baseados em pontos fracos identificados');
+  addBullet('Comparador de sessões para visualizar evolução ao longo do tempo');
+  
+  addSectionTitle('Impacto Organizacional', 2);
+  
+  addSectionTitle('Escalabilidade', 3);
+  addBullet('Treinar 100+ vendedores simultaneamente sem necessidade de instrutores', 5);
+  addBullet('Expansão para novos mercados sem custos adicionais de treinamento', 5);
+  addBullet('Onboarding acelerado em diferentes fusos horários', 5);
+  
+  addSectionTitle('Consistência', 3);
+  addBullet('Metodologia padronizada aplicada igualmente a todos os vendedores', 5);
+  addBullet('Avaliação objetiva eliminando vieses de avaliadores humanos', 5);
+  addBullet('Todos os vendedores praticam com os mesmos cenários desafiadores', 5);
+  
+  addSectionTitle('Métricas e Gestão', 3);
+  addBullet('Dashboard unificado para gestores acompanharem evolução do time', 5);
+  addBullet('Dados objetivos para decisões de coaching e desenvolvimento', 5);
+  addBullet('Identificação de gaps de competência em tempo real', 5);
+  addBullet('Relatórios exportáveis para análise de performance', 5);
+
+  // =====================
+  // 4. AS 7 COMPETÊNCIAS AVALIADAS
+  // =====================
+  doc.addPage();
+  yPos = margin;
+  
+  addSectionTitle('4. As 7 Competências Avaliadas', 1);
   addParagraph(
-    'A plataforma avalia o desempenho dos vendedores em 7 competências críticas, cada uma com 4-5 sub-critérios específicos. Todas as competências são pontuadas de 0 a 100.'
+    'Cada sessão avalia o vendedor em 7 competências fundamentais de vendas consultivas. Cada competência possui 5 critérios granulares, totalizando 35 pontos de avaliação.'
   );
-
-  // Competência 1
-  addSectionTitle('3.1. Abertura e Rapport', 2);
-  addParagraph('Estabelecer conexão inicial e criar ambiente propício para a conversa.');
   
-  checkPageBreak(35);
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Sub-critério', 'Peso', 'Descrição']],
-    body: [
-      ['Saudação', '20', 'Cumprimento profissional e apresentação clara'],
-      ['Contexto', '25', 'Explica propósito da conversa de forma concisa'],
-      ['Permissão', '20', 'Pede permissão para prosseguir e confirma disponibilidade'],
-      ['Tom', '15', 'Usa tom apropriado e demonstra empatia'],
-      ['Transição', '20', 'Transição suave para fase de descoberta'],
-    ],
-    theme: 'striped',
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [51, 51, 51] },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 10;
-
-  // Competência 2
-  addSectionTitle('3.2. Descoberta de Situação', 2);
-  addParagraph('Entender o contexto atual do cliente antes de propor soluções.');
+  const competencies = [
+    {
+      name: '1. Abertura',
+      description: 'Capacidade de estabelecer rapport e iniciar a conversa de forma profissional',
+      criteria: [
+        'Apresentação clara e profissional',
+        'Estabelecimento de rapport inicial',
+        'Definição de agenda da reunião',
+        'Tom adequado e confiança',
+        'Solicitação de permissão para prosseguir'
+      ]
+    },
+    {
+      name: '2. Descoberta de Situação',
+      description: 'Habilidade de fazer perguntas sobre o contexto atual do cliente',
+      criteria: [
+        'Perguntas abertas sobre processos atuais',
+        'Compreensão do organograma e estrutura',
+        'Identificação de ferramentas utilizadas',
+        'Mapeamento de volumes e métricas',
+        'Documentação de informações coletadas'
+      ]
+    },
+    {
+      name: '3. Identificação de Problemas',
+      description: 'Capacidade de identificar dores, gargalos e frustrações',
+      criteria: [
+        'Perguntas diretas sobre dificuldades',
+        'Escuta ativa de sinais de insatisfação',
+        'Aprofundamento em problemas mencionados',
+        'Validação da relevância do problema',
+        'Priorização de múltiplos problemas'
+      ]
+    },
+    {
+      name: '4. Amplificação de Implicações',
+      description: 'Habilidade de explorar consequências e criar urgência',
+      criteria: [
+        'Perguntas sobre impacto financeiro',
+        'Exploração de custos de oportunidade',
+        'Amplificação de riscos futuros',
+        'Conexão com objetivos estratégicos',
+        'Criação de senso de urgência'
+      ]
+    },
+    {
+      name: '5. Apresentação de Valor',
+      description: 'Capacidade de apresentar benefícios de forma quantificada',
+      criteria: [
+        'Apresentação de benefícios tangíveis',
+        'Quantificação de resultados esperados',
+        'Conexão com necessidades identificadas',
+        'Uso de casos de sucesso relevantes',
+        'Foco em ROI e payback'
+      ]
+    },
+    {
+      name: '6. Tratamento de Objeções',
+      description: 'Habilidade de lidar com resistências de forma consultiva',
+      criteria: [
+        'Escuta ativa da objeção completa',
+        'Validação da preocupação do cliente',
+        'Resposta estruturada e fundamentada',
+        'Uso de provas e evidências',
+        'Confirmação da objeção superada'
+      ]
+    },
+    {
+      name: '7. Fechamento',
+      description: 'Capacidade de propor próximos passos e avançar no processo',
+      criteria: [
+        'Identificação do momento certo',
+        'Proposta clara de próximos passos',
+        'Solicitação de compromisso',
+        'Definição de timeline',
+        'Confirmação de alinhamento'
+      ]
+    }
+  ];
   
-  checkPageBreak(35);
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Sub-critério', 'Peso', 'Descrição']],
-    body: [
-      ['Processo Atual', '30', 'Mapeia processos e fluxos de trabalho existentes'],
-      ['Ferramentas', '20', 'Identifica sistemas e ferramentas em uso'],
-      ['Equipe', '15', 'Entende tamanho e estrutura da equipe'],
-      ['Volume', '20', 'Quantifica volume de trabalho e demanda'],
-      ['Escuta', '15', 'Demonstra escuta ativa e faz anotações'],
-    ],
-    theme: 'striped',
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [51, 51, 51] },
+  competencies.forEach(comp => {
+    addSectionTitle(comp.name, 2);
+    addParagraph(comp.description);
+    addParagraph('Critérios avaliados:');
+    comp.criteria.forEach(criterion => {
+      addBullet(criterion, 5);
+    });
+    yPos += 5;
   });
-  yPos = (doc as any).lastAutoTable.finalY + 10;
-
-  // Competência 3
-  doc.addPage();
-  yPos = margin;
-  addSectionTitle('3.3. Identificação de Problemas', 2);
-  addParagraph('Revelar dificuldades, gargalos e insatisfações do cliente.');
-  
-  checkPageBreak(35);
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Sub-critério', 'Peso', 'Descrição']],
-    body: [
-      ['Gargalos', '25', 'Identifica pontos de lentidão no processo'],
-      ['Erros', '25', 'Descobre problemas de qualidade e retrabalho'],
-      ['Tempo', '20', 'Quantifica tempo gasto em tarefas manuais'],
-      ['Frustração', '15', 'Capta insatisfação da equipe'],
-      ['Validação', '15', 'Confirma e valida problemas identificados'],
-    ],
-    theme: 'striped',
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [51, 51, 51] },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 10;
-
-  // Competência 4
-  addSectionTitle('3.4. Amplificação de Implicações', 2);
-  addParagraph('Expandir as consequências dos problemas para criar urgência.');
-  
-  checkPageBreak(35);
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Sub-critério', 'Peso', 'Descrição']],
-    body: [
-      ['Custo', '30', 'Quantifica impacto financeiro dos problemas'],
-      ['Escala', '20', 'Explora como problemas crescem com o tempo'],
-      ['Oportunidade', '25', 'Discute oportunidades perdidas'],
-      ['Competitividade', '15', 'Relaciona com posição competitiva'],
-      ['Urgência', '10', 'Cria senso de urgência para mudança'],
-    ],
-    theme: 'striped',
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [51, 51, 51] },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 10;
-
-  // Competência 5
-  doc.addPage();
-  yPos = margin;
-  addSectionTitle('3.5. Apresentação de Valor', 2);
-  addParagraph('Apresentar a solução de forma conectada aos problemas e necessidades.');
-  
-  checkPageBreak(35);
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Sub-critério', 'Peso', 'Descrição']],
-    body: [
-      ['Conexão', '30', 'Liga solução aos problemas específicos'],
-      ['Funcionalidades', '25', 'Explica características relevantes'],
-      ['ROI', '25', 'Demonstra retorno sobre investimento'],
-      ['Diferenciação', '10', 'Destaca diferenciais competitivos'],
-      ['Prova', '10', 'Usa casos de sucesso e dados'],
-    ],
-    theme: 'striped',
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [51, 51, 51] },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 10;
-
-  // Competência 6
-  addSectionTitle('3.6. Gestão de Objeções Técnicas', 2);
-  addParagraph('Lidar com resistências e preocupações sobre a solução.');
-  
-  checkPageBreak(35);
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Sub-critério', 'Peso', 'Descrição']],
-    body: [
-      ['Escuta', '20', 'Ouve objeção completamente sem interromper'],
-      ['Validação', '20', 'Valida a preocupação do cliente'],
-      ['Clarificação', '20', 'Faz perguntas para entender a raiz da objeção'],
-      ['Resposta', '25', 'Responde com evidências e exemplos'],
-      ['Confirmação', '15', 'Confirma se objeção foi superada'],
-    ],
-    theme: 'striped',
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [51, 51, 51] },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 10;
-
-  // Competência 7
-  doc.addPage();
-  yPos = margin;
-  addSectionTitle('3.7. Fechamento e Próximos Passos', 2);
-  addParagraph('Conduzir o cliente para a decisão e definir próximas ações.');
-  
-  checkPageBreak(35);
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Sub-critério', 'Peso', 'Descrição']],
-    body: [
-      ['Resumo', '20', 'Recapitula pontos-chave da conversa'],
-      ['Acordo', '25', 'Verifica alinhamento e interesse'],
-      ['Proposta', '25', 'Define claramente próximos passos'],
-      ['Timeline', '15', 'Estabelece prazos e datas'],
-      ['Compromisso', '15', 'Obtém comprometimento do cliente'],
-    ],
-    theme: 'striped',
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [51, 51, 51] },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 10;
 
   // =====================
-  // 4. SISTEMA DE AVALIAÇÃO COM IA
+  // 5. SISTEMA DE AVALIAÇÃO COM IA
   // =====================
   doc.addPage();
   yPos = margin;
   
-  addSectionTitle('4. Sistema de Avaliação com IA', 1);
+  addSectionTitle('5. Sistema de Avaliação com IA', 1);
   addParagraph(
-    'A plataforma utiliza Inteligência Artificial avançada para analisar automaticamente cada sessão de roleplay e fornecer feedback detalhado e objetivo.'
+    'A plataforma utiliza o modelo Google Gemini 2.5 Flash para avaliar cada sessão de forma objetiva e consistente.'
   );
   
   addSectionTitle('Modelo de IA Utilizado', 2);
-  addParagraph(
-    'Google Gemini 2.5 Flash - Modelo equilibrado com excelente desempenho em:\n' +
-    '• Análise de conversas e contexto\n' +
-    '• Identificação de padrões de comunicação\n' +
-    '• Avaliação objetiva baseada em critérios\n' +
-    '• Geração de feedback construtivo'
-  );
+  addParagraph('Google Gemini 2.5 Flash:');
+  addBullet('Modelo multimodal de última geração', 5);
+  addBullet('Capacidade de análise de contexto extenso (até 1 milhão de tokens)', 5);
+  addBullet('Latência baixa para feedback em tempo real', 5);
+  addBullet('Compreensão profunda de conversas comerciais complexas', 5);
   
   addSectionTitle('Processo de Avaliação', 2);
-  addParagraph(
-    '1. Captura: Toda a conversa entre vendedor e persona é registrada\n' +
-    '2. Análise: IA processa mensagens identificando competências demonstradas\n' +
-    '3. Pontuação: Cada competência recebe score de 0-100 com base nos sub-critérios\n' +
-    '4. Feedback: Sistema gera feedback textual específico para cada competência\n' +
-    '5. Insights: Análise consolidada com pontos fortes e áreas de melhoria\n' +
-    '6. Recomendações: Sugestões personalizadas de desenvolvimento'
-  );
+  addParagraph('1. Captura da Conversa: Toda a interação entre vendedor e persona é registrada');
+  addParagraph('2. Análise Contextual: A IA analisa cada mensagem considerando o fluxo completo da conversa');
+  addParagraph('3. Avaliação por Critério: Cada um dos 35 critérios recebe um score de 0-100');
+  addParagraph('4. Feedback Específico: Geração de feedback detalhado por competência');
+  addParagraph('5. Plano de Ação: Criação de recomendações práticas e priorizadas');
   
-  addSectionTitle('Tempo de Resposta', 2);
-  addParagraph(
-    'A análise completa de uma sessão leva em média 15-30 segundos, dependendo da duração da conversa. O feedback está disponível imediatamente após o encerramento da sessão.'
-  );
+  addSectionTitle('Sistema de Pontuação', 2);
+  addParagraph('Cada critério é avaliado em escala de 0-100:');
+  addBullet('0-49: Não Atendido (✗) - Critério não demonstrado ou executado incorretamente', 5);
+  addBullet('50-69: Parcial (-) - Critério demonstrado mas com oportunidades significativas de melhoria', 5);
+  addBullet('70-100: Atendido (✓) - Critério executado de forma adequada ou exemplar', 5);
+  
+  addSectionTitle('Cálculo do Score Overall', 2);
+  addParagraph('O score final da sessão é calculado através de:');
+  addBullet('Média ponderada dos 35 critérios', 5);
+  addBullet('Pesos diferenciados por competência conforme relevância', 5);
+  addBullet('Normalização para escala 0-100', 5);
 
   // =====================
-  // 5. TIPOS DE REUNIÃO E PROGRESSÃO
+  // 6. TIPOS DE REUNIÃO E PROGRESSÃO
   // =====================
   doc.addPage();
   yPos = margin;
   
-  addSectionTitle('5. Tipos de Reunião e Progressão', 1);
+  addSectionTitle('6. Tipos de Reunião e Progressão', 1);
   addParagraph(
-    'A plataforma simula 4 tipos de reuniões comerciais, representando as diferentes fases do ciclo de vendas B2B:'
+    'A plataforma oferece 4 tipos de reunião que simulam diferentes momentos do processo comercial.'
   );
   
-  checkPageBreak(50);
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Tipo', 'Objetivo Principal', 'Foco SPIN', 'Duração Típica']],
-    body: [
-      ['Prospecção Inicial', 'Qualificar e despertar interesse', 'Situation + Problem', '15-20 min'],
-      ['Descoberta', 'Entender dores e necessidades', 'Problem + Implication', '30-45 min'],
-      ['Apresentação', 'Demonstrar solução e valor', 'Need-payoff + Valor', '45-60 min'],
-      ['Negociação', 'Fechar negócio e próximos passos', 'Objeções + Fechamento', '30-45 min'],
-    ],
-    theme: 'grid',
-    styles: { fontSize: 9, cellPadding: 3 },
-    headStyles: { fillColor: [51, 51, 51] },
+  const meetingTypes = [
+    {
+      name: '1. Discovery Call (Ligação de Descoberta)',
+      description: 'Primeira conversa com o cliente potencial',
+      focus: 'Foco em Situação e Problema',
+      duration: '15-20 minutos',
+      characteristics: [
+        'Estabelecimento de rapport inicial',
+        'Mapeamento da situação atual',
+        'Identificação de problemas e dores',
+        'Qualificação básica da oportunidade'
+      ]
+    },
+    {
+      name: '2. Demo Call (Demonstração)',
+      description: 'Apresentação da solução após entendimento inicial',
+      focus: 'Foco em Valor e Need-Payoff',
+      duration: '20-30 minutos',
+      characteristics: [
+        'Recapitulação de problemas identificados',
+        'Demonstração de features relevantes',
+        'Apresentação de benefícios quantificados',
+        'Casos de sucesso similares'
+      ]
+    },
+    {
+      name: '3. Negotiation Call (Negociação)',
+      description: 'Discussão de proposta comercial e objeções',
+      focus: 'Foco em Objeções e Implicação',
+      duration: '20-25 minutos',
+      characteristics: [
+        'Apresentação de proposta comercial',
+        'Tratamento de objeções de preço/prazo/escopo',
+        'Amplificação do custo de não fazer nada',
+        'Negociação de condições'
+      ]
+    },
+    {
+      name: '4. Closing Call (Fechamento)',
+      description: 'Reunião final para fechar o negócio',
+      focus: 'Foco em Fechamento e Compromisso',
+      duration: '15-20 minutos',
+      characteristics: [
+        'Recapitulação de valor e alinhamento',
+        'Proposta de próximos passos concretos',
+        'Solicitação de compromisso',
+        'Definição de timeline de implementação'
+      ]
+    }
+  ];
+  
+  meetingTypes.forEach(mt => {
+    addSectionTitle(mt.name, 2);
+    addParagraph(mt.description);
+    addParagraph(`${mt.focus} | ${mt.duration}`);
+    addParagraph('Características:');
+    mt.characteristics.forEach(char => {
+      addBullet(char, 5);
+    });
+    yPos += 5;
   });
-  yPos = (doc as any).lastAutoTable.finalY + 10;
   
   addSectionTitle('Progressão Sugerida', 2);
-  addParagraph(
-    'Recomenda-se que vendedores pratiquem nesta ordem:\n' +
-    '1. Prospecção (3-5 sessões) - Dominar abertura e qualificação\n' +
-    '2. Descoberta (5-7 sessões) - Aperfeiçoar perguntas SPIN\n' +
-    '3. Apresentação (5-7 sessões) - Melhorar demonstração de valor\n' +
-    '4. Negociação (3-5 sessões) - Praticar fechamento e objeções\n\n' +
-    'Total recomendado: 20-25 sessões para domínio completo'
-  );
+  addParagraph('Recomendação de sequência para maximizar o aprendizado:');
+  addBullet('Fase 1: 70% Discovery + 30% Demo (primeiras 10 sessões)', 5);
+  addBullet('Fase 2: 40% Discovery + 40% Demo + 20% Negotiation (sessões 11-25)', 5);
+  addBullet('Fase 3: Mix equilibrado de todos os tipos (sessões 26-40)', 5);
+  addBullet('Fase 4: Foco em Negotiation e Closing (sessões 41+)', 5);
 
   // =====================
-  // 6. SISTEMA DE PERSONAS
+  // 7. CENÁRIO PERFEITO DE TREINAMENTO
   // =====================
   doc.addPage();
   yPos = margin;
   
-  addSectionTitle('6. Sistema de Personas', 1);
+  addSectionTitle('7. Cenário Perfeito de Treinamento', 1);
   addParagraph(
-    'As personas são personagens alimentados por IA que simulam decisores reais em empresas. Cada persona tem:'
+    'Este guia apresenta o caminho ideal para maximizar o desenvolvimento de competências em vendas consultivas através da plataforma.'
   );
+  
+  addSectionTitle('Programa de 30 Dias para Iniciantes', 2);
+  
+  addSectionTitle('Semana 1: Fundação (5 sessões)', 3);
+  addBullet('Dificuldade: Easy', 5);
+  addBullet('Tipos: 100% Discovery Call', 5);
+  addBullet('Método: Texto (para planejar perguntas calmamente)', 5);
+  addBullet('Objetivo: Dominar abertura e perguntas de situação', 5);
+  addBullet('Meta: Score 60+ consistente', 5);
+  
+  addSectionTitle('Semana 2: Evolução (5 sessões)', 3);
+  addBullet('Dificuldade: Mix Easy/Medium (3 Easy + 2 Medium)', 5);
+  addBullet('Tipos: 60% Discovery + 40% Demo', 5);
+  addBullet('Método: 50% Texto + 50% Voz (introduzir comunicação verbal)', 5);
+  addBullet('Objetivo: Aprofundar identificação de problemas', 5);
+  addBullet('Meta: Score 70+ em sessões Easy', 5);
+  
+  addSectionTitle('Semana 3: Consolidação (5 sessões)', 3);
+  addBullet('Dificuldade: Medium', 5);
+  addBullet('Tipos: 40% Discovery + 40% Demo + 20% Negotiation', 5);
+  addBullet('Método: 50% Voz (desenvolver fluência verbal)', 5);
+  addBullet('Objetivo: Praticar amplificação de implicações e apresentação de valor', 5);
+  addBullet('Meta: Score 75+ em Medium', 5);
+  
+  addSectionTitle('Semana 4: Desafio (5 sessões)', 3);
+  addBullet('Dificuldade: Mix Medium/Hard (3 Medium + 2 Hard)', 5);
+  addBullet('Tipos: Mix equilibrado incluindo Negotiation e Closing', 5);
+  addBullet('Método: 70% Voz (preparação para situações reais)', 5);
+  addBullet('Objetivo: Desenvolver resiliência em objeções complexas', 5);
+  addBullet('Meta: Score 80+ em Medium, 70+ em Hard', 5);
+  
+  addSectionTitle('Rotina Ideal Diária', 2);
+  addBullet('08:00-08:20: 1 sessão de prática (15-20 minutos)', 5);
+  addBullet('08:20-08:35: Revisar feedback imediatamente após (15 minutos)', 5);
+  addBullet('08:35-08:45: Anotar 1 aprendizado chave do dia (10 minutos)', 5);
+  addBullet('Sexta-feira: Exportar relatório semanal e comparar sessões', 5);
+  
+  addSectionTitle('Marcos de Progresso', 2);
+  
+  addSectionTitle('Marco 1: Competência Básica (10 sessões)', 3);
+  addBullet('Score 70+ consistente em personas Easy', 5);
+  addBullet('Domínio de perguntas de Situação e Problema', 5);
+  addBullet('Abertura profissional em 90% das sessões', 5);
+  addBullet('Achievement desbloqueado: "Primeiros Passos"', 5);
+  
+  addSectionTitle('Marco 2: Competência Intermediária (20 sessões)', 3);
+  addBullet('Score 80+ em 3 competências (das 7 totais)', 5);
+  addBullet('Confortável com personas Medium', 5);
+  addBullet('Domínio de perguntas de Implicação', 5);
+  addBullet('Métricas vocais dentro do range ideal', 5);
+  addBullet('Achievement desbloqueado: "Vendedor Consistente"', 5);
+  
+  addSectionTitle('Marco 3: Competência Avançada (30 sessões)', 3);
+  addBullet('Score 90+ overall em personas Medium', 5);
+  addBullet('Score 80+ em personas Hard', 5);
+  addBullet('Domínio de todas as 7 competências', 5);
+  addBullet('Tratamento eficaz de objeções complexas', 5);
+  addBullet('Achievement desbloqueado: "Mestre SPIN"', 5);
+  
+  addSectionTitle('Melhores Práticas', 2);
+  addBullet('Consistência: Pratique no mesmo horário todos os dias', 5);
+  addBullet('Variedade: Alterne personas a cada 2 sessões para não viciar respostas', 5);
+  addBullet('Foco: Trabalhe 1 competência fraca intensivamente por semana', 5);
+  addBullet('Progressão: Só avance para Hard após 80+ consistente em Medium', 5);
+  addBullet('Revisão: Revisite sessões passadas 1x por semana para ver evolução', 5);
+  addBullet('Voz: Use modo texto para aprender, modo voz para dominar', 5);
+  
+  addSectionTitle('Erros Comuns a Evitar', 2);
+  addBullet('❌ Pular direto para personas Hard sem dominar Easy/Medium', 5);
+  addBullet('❌ Praticar apenas Discovery Call (variedade é essencial)', 5);
+  addBullet('❌ Ignorar o feedback e não implementar recomendações', 5);
+  addBullet('❌ Fazer muitas sessões seguidas sem absorver aprendizados', 5);
+  addBullet('❌ Evitar modo voz por insegurança (é onde ocorre o verdadeiro crescimento)', 5);
+
+  // =====================
+  // 8. SISTEMA DE PERSONAS
+  // =====================
+  doc.addPage();
+  yPos = margin;
+  
+  addSectionTitle('8. Sistema de Personas', 1);
   addParagraph(
-    '• Perfil profissional (cargo, empresa, setor)\n' +
-    '• Personalidade e estilo de comunicação\n' +
-    '• Dores e desafios específicos\n' +
-    '• Padrões de objeção realistas\n' +
-    '• Sinais de compra característicos\n' +
-    '• Contexto de automação relevante'
+    'As personas são personagens fictícios alimentados por IA que simulam tomadores de decisão em diferentes contextos empresariais.'
   );
   
   addSectionTitle('Níveis de Dificuldade', 2);
   
-  checkPageBreak(40);
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Nível', 'Características', 'Recomendado Para']],
-    body: [
-      [
-        'Easy',
-        'Receptivo, compartilha informações facilmente, poucas objeções',
-        'Iniciantes, primeiras 5-10 sessões'
-      ],
-      [
-        'Medium',
-        'Moderadamente cético, exige mais perguntas, objeções padrão',
-        'Intermediários, após 10 sessões'
-      ],
-      [
-        'Hard',
-        'Muito cético, evasivo, objeções complexas, exige domínio SPIN',
-        'Avançados, após 20+ sessões'
-      ],
-    ],
-    theme: 'striped',
-    styles: { fontSize: 9, cellPadding: 3 },
-    headStyles: { fillColor: [51, 51, 51] },
-    columnStyles: { 1: { cellWidth: 60 }, 2: { cellWidth: 50 } },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 10;
+  addSectionTitle('Easy (Fácil)', 3);
+  addParagraph('Características:');
+  addBullet('Receptivos e colaborativos', 5);
+  addBullet('Respondem perguntas diretamente', 5);
+  addBullet('Dores claras e explícitas', 5);
+  addBullet('Poucas objeções ou objeções básicas', 5);
+  addBullet('Ideal para: Iniciantes, prática de fundamentos', 5);
   
-  addSectionTitle('Exemplos de Personas', 2);
-  addParagraph(
-    '• Marcus Chen (CTO, TechCorp) - Easy: Aberto a inovação, busca eficiência\n' +
-    '• Sarah Williams (CFO, FinanceHub) - Medium: Focada em ROI, cautelosa\n' +
-    '• Robert Johnson (COO, MegaCorp) - Hard: Altamente cético, múltiplas objeções'
-  );
+  addSectionTitle('Medium (Médio)', 3);
+  addParagraph('Características:');
+  addBullet('Moderadamente céticos', 5);
+  addBullet('Exigem aprofundamento nas perguntas', 5);
+  addBullet('Apresentam objeções de preço e timing', 5);
+  addBullet('Necessitam de casos de sucesso', 5);
+  addBullet('Ideal para: Desenvolvimento de persistência e técnicas de amplificação', 5);
+  
+  addSectionTitle('Hard (Difícil)', 3);
+  addParagraph('Características:');
+  addBullet('Altamente céticos e desafiadores', 5);
+  addBullet('Respostas evasivas ou incompletas', 5);
+  addBullet('Objeções complexas e múltiplas', 5);
+  addBullet('Exigem ROI detalhado e provas concretas', 5);
+  addBullet('Simulam pressão de tempo e recursos', 5);
+  addBullet('Ideal para: Vendedores experientes, preparação para situações reais complexas', 5);
 
   // =====================
-  // 7. MÉTRICAS VOCAIS
+  // 9. PLAYBOOK DE PROGRESSÃO PELAS PERSONAS
   // =====================
   doc.addPage();
   yPos = margin;
   
-  addSectionTitle('7. Métricas Vocais e Análise Quantitativa', 1);
+  addSectionTitle('9. Playbook de Progressão pelas Personas', 1);
   addParagraph(
-    'Em sessões por voz, a plataforma captura e analisa métricas quantitativas de comunicação:'
+    'Este playbook define a jornada ideal de 50 sessões para evoluir de iniciante a vendedor elite.'
   );
   
-  checkPageBreak(50);
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Métrica', 'O que Mede', 'Range Ideal', 'Impacto']],
-    body: [
-      [
-        'Talk/Listen Ratio',
-        'Proporção entre falar e ouvir',
-        '40/60 a 45/55',
-        'Vendedores devem ouvir mais que falar'
-      ],
-      [
-        'Filler Words/Min',
-        'Frequência de "né", "tipo", "ah"',
-        '< 3 por minuto',
-        'Muitos fillers reduzem credibilidade'
-      ],
-      [
-        'Speech Speed',
-        'Palavras por minuto',
-        '140-160 WPM',
-        'Muito rápido = ansiedade; Lento = tédio'
-      ],
-      [
-        'Longest Monologue',
-        'Maior sequência sem pausa',
-        '< 90 segundos',
-        'Monólogos longos indicam falta de escuta'
-      ],
-    ],
-    theme: 'grid',
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [51, 51, 51] },
-    columnStyles: { 0: { cellWidth: 35 }, 2: { cellWidth: 30 } },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 10;
+  addSectionTitle('Jornada de 50 Sessões', 2);
+  
+  addSectionTitle('Fase 1: Fundação (Sessões 1-10)', 3);
+  addParagraph('Personas Recomendadas: Easy (todas)');
+  addParagraph('Tipos de Reunião: 70% Discovery + 30% Demo');
+  addParagraph('Objetivo Principal: Dominar abertura e perguntas de situação');
+  addParagraph('Checkpoint de Sucesso:');
+  addBullet('Score 65+ em Abertura', 5);
+  addBullet('Score 65+ em Descoberta de Situação', 5);
+  addBullet('Confortável com fluxo básico de conversa', 5);
+  
+  addSectionTitle('Fase 2: Desenvolvimento (Sessões 11-25)', 3);
+  addParagraph('Personas Recomendadas: Medium');
+  addParagraph('Tipos de Reunião: 40% Discovery + 40% Demo + 20% Negotiation');
+  addParagraph('Objetivo Principal: Dominar perguntas de Problema e Implicação');
+  addParagraph('Checkpoint de Sucesso:');
+  addBullet('Score 75+ em 5 das 7 competências', 5);
+  addBullet('Tratamento adequado de objeções básicas', 5);
+  addBullet('Amplificação eficaz de implicações', 5);
+  
+  addSectionTitle('Fase 3: Maestria (Sessões 26-40)', 3);
+  addParagraph('Personas Recomendadas: Hard');
+  addParagraph('Tipos de Reunião: Mix equilibrado incluindo Closing Call');
+  addParagraph('Objetivo Principal: Dominar objeções complexas e fechamento');
+  addParagraph('Checkpoint de Sucesso:');
+  addBullet('Score 85+ overall em personas Medium', 5);
+  addBullet('Score 75+ em personas Hard', 5);
+  addBullet('Tratamento eficaz de objeções complexas', 5);
+  
+  addSectionTitle('Fase 4: Elite (Sessões 41+)', 3);
+  addParagraph('Personas Recomendadas: Todas Hard, rotação constante');
+  addParagraph('Tipos de Reunião: Foco em Negotiation e Closing');
+  addParagraph('Objetivo Principal: Consistência em excelência');
+  addParagraph('Checkpoint de Sucesso:');
+  addBullet('Score 90+ consistente em personas Hard', 5);
+  addBullet('Todas as 7 competências acima de 85', 5);
+  addBullet('Métricas vocais otimizadas', 5);
+  
+  addSectionTitle('Estratégias por Dificuldade', 2);
+  
+  addSectionTitle('Como abordar personas Easy', 3);
+  addBullet('Foco: Executar a metodologia sem pressão', 5);
+  addBullet('Use para: Testar novas técnicas, praticar scripts, ganhar confiança', 5);
+  addBullet('Armadilha: Não fique confortável demais, avance para Medium', 5);
+  
+  addSectionTitle('Como abordar personas Medium', 3);
+  addBullet('Foco: Praticar aprofundamento e persistência', 5);
+  addBullet('Use para: Desenvolver perguntas de Implicação, tratar objeções básicas', 5);
+  addBullet('Armadilha: Não desista nas primeiras objeções, insista com respeito', 5);
+  
+  addSectionTitle('Como abordar personas Hard', 3);
+  addBullet('Foco: Desenvolver resiliência e adaptação rápida', 5);
+  addBullet('Use para: Preparação para situações reais de alta pressão', 5);
+  addBullet('Armadilha: Não leve o ceticismo para o pessoal, é parte do treinamento', 5);
 
   // =====================
-  // 8. DASHBOARD E KPIs
+  // 10. MÉTRICAS VOCAIS E ANÁLISE QUANTITATIVA
   // =====================
   doc.addPage();
   yPos = margin;
   
-  addSectionTitle('8. Dashboard e KPIs', 1);
+  addSectionTitle('10. Métricas Vocais e Análise Quantitativa', 1);
   addParagraph(
-    'O dashboard fornece visão consolidada do progresso e desempenho do vendedor:'
+    'Em sessões por voz, a plataforma captura e analisa métricas vocais que influenciam diretamente o sucesso em vendas.'
   );
   
-  addSectionTitle('Métricas Principais', 2);
-  addParagraph(
-    '• Total de Sessões: Quantidade de roleplays completados\n' +
-    '• Tempo Total de Prática: Horas investidas em treinamento\n' +
-    '• Score Médio: Média de todas as avaliações (0-100)\n' +
-    '• Melhor Score: Maior pontuação alcançada\n' +
-    '• Pior Score: Menor pontuação (para identificar dificuldades)\n' +
-    '• Tendência: Indicador de evolução (↑ melhorando, ↓ decaindo, → estável)'
-  );
+  addSectionTitle('Métricas Capturadas', 2);
   
-  addSectionTitle('Gráficos e Visualizações', 2);
-  addParagraph(
-    '• Radar Chart de Competências: Mostra força em cada uma das 7 competências\n' +
-    '• Evolução SPIN: Linha temporal mostrando progresso nas 4 categorias SPIN\n' +
-    '• Heatmap: Cruzamento entre tipo de reunião e competências\n' +
-    '• Histórico de Sessões: Lista das últimas 10 sessões com scores'
-  );
+  addSectionTitle('Talk/Listen Ratio', 3);
+  addParagraph('Proporção entre tempo falado pelo vendedor vs. tempo ouvindo o cliente.');
+  addBullet('Range Ideal: 30-40% vendedor / 60-70% cliente', 5);
+  addBullet('Problema se muito alto: Vendedor falando demais, não ouvindo', 5);
+  addBullet('Problema se muito baixo: Vendedor não conduzindo a conversa', 5);
+  
+  addSectionTitle('Speech Speed (Velocidade de Fala)', 3);
+  addParagraph('Palavras por minuto do vendedor.');
+  addBullet('Range Ideal: 140-160 palavras/minuto', 5);
+  addBullet('Problema se muito rápido: Cliente não acompanha, ansiedade', 5);
+  addBullet('Problema se muito lento: Perda de energia, desengajamento', 5);
+  
+  addSectionTitle('Filler Words (Palavras de Preenchimento)', 3);
+  addParagraph('Frequência de "é", "tipo", "né", etc.');
+  addBullet('Range Ideal: Menos de 3 por minuto', 5);
+  addBullet('Problema se alto: Demonstra nervosismo, falta de preparação', 5);
+  addBullet('Impacto: Reduz credibilidade e profissionalismo', 5);
 
   // =====================
-  // 9. FLUXO DE UMA SESSÃO
+  // 11. DASHBOARD E KPIS
   // =====================
   doc.addPage();
   yPos = margin;
   
-  addSectionTitle('9. Fluxo de Uma Sessão', 1);
-  
-  addSectionTitle('Etapa 1: Configuração', 2);
+  addSectionTitle('11. Dashboard e KPIs', 1);
   addParagraph(
-    '• Usuário acessa página /roleplay\n' +
-    '• Seleciona persona (por exemplo: Marcus Chen - CTO)\n' +
-    '• Escolhe tipo de reunião (Prospecção, Descoberta, Apresentação ou Negociação)\n' +
-    '• Define método: Texto (chat) ou Voz (chamada simulada)\n' +
-    '• Sistema cria registro na tabela roleplay_sessions com status "active"'
+    'O Dashboard oferece visão consolidada do desempenho do vendedor ao longo do tempo.'
   );
   
-  addSectionTitle('Etapa 2: Roleplay', 2);
-  addParagraph(
-    '• Se texto: Interface de chat em tempo real\n' +
-    '• Se voz: Transcrição automática de áudio para texto\n' +
-    '• Edge function chat-roleplay processa cada mensagem\n' +
-    '• Persona responde com base em seu perfil e contexto\n' +
-    '• Todas as mensagens são salvas em session_messages'
-  );
+  addSectionTitle('KPIs Principais', 2);
+  addBullet('Total de Sessões: Quantidade de práticas realizadas');
+  addBullet('Score Médio: Média de performance em todas as sessões');
+  addBullet('Melhor Score: Maior pontuação alcançada');
+  addBullet('Última Atividade: Data da última prática');
+  addBullet('Achievements: Conquistas desbloqueadas');
   
-  addSectionTitle('Etapa 3: Encerramento', 2);
-  addParagraph(
-    '• Usuário clica em "Encerrar Sessão"\n' +
-    '• Sistema atualiza status para "completed"\n' +
-    '• Calcula duration_seconds (tempo total da sessão)\n' +
-    '• Captura voice_metrics se foi sessão por voz'
-  );
+  addSectionTitle('Visualizações Disponíveis', 2);
   
-  addSectionTitle('Etapa 4: Avaliação Automática', 2);
-  addParagraph(
-    '• Edge function evaluate-competencies é invocada\n' +
-    '• IA analisa toda a conversa contra os critérios SPIN\n' +
-    '• Gera score (0-100) para cada uma das 7 competências\n' +
-    '• Calcula sub_scores para cada sub-critério\n' +
-    '• Cria feedback textual específico\n' +
-    '• Salva tudo em competency_scores\n' +
-    '• Calcula overall_score (média ponderada)'
-  );
+  addSectionTitle('Gráfico de Evolução SPIN', 3);
+  addParagraph('Linha do tempo mostrando evolução nas 4 categorias SPIN ao longo das sessões.');
+  addBullet('Eixo X: Sessões (ordenadas cronologicamente)', 5);
+  addBullet('Eixo Y: Score médio (0-100)', 5);
+  addBullet('4 Linhas: Situation, Problem, Implication, Need-Payoff', 5);
+  addBullet('Uso: Identificar tendências de melhoria ou estagnação', 5);
   
-  addSectionTitle('Etapa 5: Geração de Insights', 2);
-  addParagraph(
-    '• Edge function generate-insights é invocada\n' +
-    '• Consolida dados de múltiplas sessões do usuário\n' +
-    '• Identifica padrões, pontos fortes e fracos\n' +
-    '• Gera executive_summary\n' +
-    '• Lista highlights (momentos positivos)\n' +
-    '• Cria recommendations (ações de melhoria)\n' +
-    '• Salva em user_insights'
-  );
-  
-  addSectionTitle('Etapa 6: Exibição de Resultados', 2);
-  addParagraph(
-    '• Usuário é redirecionado para /session-detail/[id]\n' +
-    '• Visualiza overall_score com indicador visual\n' +
-    '• Vê breakdown por competência com gráfico de barras\n' +
-    '• Lê executive_summary e highlights\n' +
-    '• Acessa recommendations específicas\n' +
-    '• Pode baixar PDF completo do relatório'
-  );
+  addSectionTitle('Heatmap de Competências', 3);
+  addParagraph('Mapa de calor mostrando performance em cada competência.');
+  addBullet('Cores: Verde (>80), Amarelo (60-80), Vermelho (<60)', 5);
+  addBullet('Uso: Identificar rapidamente pontos fortes e fracos', 5);
 
   // =====================
-  // 10. ARQUITETURA TÉCNICA
+  // 12. FUNCIONALIDADES DA PLATAFORMA
   // =====================
   doc.addPage();
   yPos = margin;
   
-  addSectionTitle('10. Arquitetura Técnica', 1);
+  addSectionTitle('12. Funcionalidades da Plataforma', 1);
+  addParagraph(
+    'Descrição detalhada de todas as funcionalidades disponíveis na plataforma.'
+  );
+  
+  addSectionTitle('1. Chat por Texto', 2);
+  addParagraph('Conversação escrita com a persona alimentada por IA.');
+  addParagraph('Quando usar:');
+  addBullet('Iniciantes que precisam pensar nas perguntas', 5);
+  addBullet('Planejamento e estruturação de abordagem', 5);
+  addBullet('Testar novas técnicas sem pressão de tempo', 5);
+  addParagraph('Vantagens:');
+  addBullet('Tempo ilimitado para responder', 5);
+  addBullet('Possibilidade de revisar mensagens antes de enviar', 5);
+  addBullet('Transcrição completa disponível no histórico', 5);
+  
+  addSectionTitle('2. Chat por Voz', 2);
+  addParagraph('Conversação falada em tempo real com a persona.');
+  addParagraph('Vantagens:');
+  addBullet('Simulação realista de chamadas comerciais', 5);
+  addBullet('Captura de métricas vocais', 5);
+  addBullet('Feedback sobre comunicação verbal', 5);
+  addBullet('Desenvolve confiança para conversas reais', 5);
+  
+  addSectionTitle('3. Sistema de Achievements', 2);
+  addParagraph('Gamificação com 20+ conquistas desbloqueáveis.');
+  addParagraph('Categorias:');
+  addBullet('Marcos: Primeira sessão, 10/25/50/100 sessões', 5);
+  addBullet('Performance: Score 80+, 90+, 100 em alguma sessão', 5);
+  addBullet('Consistência: 5 dias seguidos, 30 dias seguidos', 5);
+  addBullet('Maestria: Domínio de competência, todas competências 85+', 5);
+  
+  addSectionTitle('4. Comparador de Sessões', 2);
+  addParagraph('Ferramenta para comparar até 3 sessões lado a lado.');
+  addParagraph('Recursos:');
+  addBullet('Seleção de 2-3 sessões no histórico', 5);
+  addBullet('Radar chart comparativo de competências', 5);
+  addBullet('Tabela lado a lado de scores', 5);
+  addBullet('Identificação de evolução entre períodos', 5);
+  
+  addSectionTitle('5. Exportação de Relatórios', 2);
+  addParagraph('Geração de PDFs com dados de performance.');
+  addParagraph('Conteúdo:');
+  addBullet('Sumário executivo da sessão', 5);
+  addBullet('Scores por competência', 5);
+  addBullet('Pontos fortes e áreas de melhoria', 5);
+  addBullet('Métricas vocais (se aplicável)', 5);
+  addBullet('Recomendações priorizadas', 5);
+
+  // =====================
+  // 13. FLUXO DE UMA SESSÃO
+  // =====================
+  doc.addPage();
+  yPos = margin;
+  
+  addSectionTitle('13. Fluxo de Uma Sessão', 1);
+  addParagraph(
+    'Passo a passo completo do que acontece durante uma sessão de treinamento.'
+  );
+  
+  addSectionTitle('Pré-Sessão: Configuração', 2);
+  addParagraph('1. Seleção de Persona: Escolha da persona com quem praticar');
+  addParagraph('2. Escolha de Tipo de Reunião: Discovery, Demo, Negotiation ou Closing');
+  addParagraph('3. Seleção de Método: Texto ou Voz');
+  addParagraph('4. Início da Sessão: Criação do registro no banco');
+  
+  addSectionTitle('Durante a Sessão: Interação', 2);
+  addParagraph('1. Abertura da Persona: A persona inicia a conversa');
+  addParagraph('2. Conversa Iterativa: Troca de mensagens entre vendedor e persona');
+  addParagraph('3. Duração Típica: 10-30 minutos dependendo do tipo de reunião');
+  
+  addSectionTitle('Finalização: Encerramento', 2);
+  addParagraph('1. Vendedor clica em "Finalizar Sessão"');
+  addParagraph('2. Sistema registra duração total');
+  addParagraph('3. Conversa completa é enviada para avaliação por IA');
+  
+  addSectionTitle('Pós-Sessão: Avaliação e Feedback', 2);
+  addParagraph('1. Avaliação Automática por IA (Google Gemini):');
+  addBullet('Análise completa da conversa', 5);
+  addBullet('Score de 0-100 para cada um dos 35 critérios', 5);
+  addBullet('Cálculo de score overall ponderado', 5);
+  addBullet('Geração de feedback por competência', 5);
+  addParagraph('2. Gravação de Resultados no banco de dados');
+  addParagraph('3. Geração de Insights e recomendações');
+  addParagraph('4. Verificação de Achievements desbloqueados');
+
+  // =====================
+  // 14. GUIA DE INTERPRETAÇÃO DE RESULTADOS
+  // =====================
+  doc.addPage();
+  yPos = margin;
+  
+  addSectionTitle('14. Guia de Interpretação de Resultados', 1);
+  addParagraph(
+    'Como entender seus scores, identificar prioridades e agir para melhorar.'
+  );
+  
+  addSectionTitle('Entendendo Seus Scores', 2);
+  addParagraph('Escala de Avaliação Overall (0-100):');
+  addBullet('0-50: Desenvolvimento Inicial - Foco em fundamentos e teoria', 5);
+  addBullet('51-70: Competente - Metodologia compreendida, prática necessária', 5);
+  addBullet('71-85: Proficiente - Execução consistente, refinamento necessário', 5);
+  addBullet('86-95: Avançado - Domínio da técnica, foco em excelência', 5);
+  addBullet('96-100: Elite - Excelência em vendas consultivas', 5);
+  
+  addSectionTitle('Como Ler o Feedback de Critérios', 2);
+  addParagraph('Status dos Critérios:');
+  addBullet('✓ Aprovado (Score 70-100): Continue praticando para manter o nível', 5);
+  addBullet('- Neutro (Score 50-69): Área de atenção, implementar recomendações específicas', 5);
+  addBullet('✗ Rejeitado (Score 0-49): Prioridade máxima, revisar teoria e praticar intensivamente', 5);
+  
+  addSectionTitle('Priorizando Melhorias', 2);
+  addParagraph('Hierarquia de Prioridades (faça nessa ordem):');
+  addParagraph('1. Critérios Rejeitados de Competências Fundamentais (Abertura, Situação)');
+  addParagraph('2. Competências com Score Overall <60');
+  addParagraph('3. Métricas Vocais Fora do Range Ideal');
+  addParagraph('4. Recomendações Marcadas como "High Priority"');
+  
+  addSectionTitle('Estratégias de Melhoria por Competência', 2);
+  
+  addSectionTitle('Se "Abertura" está baixa (<70)', 3);
+  addBullet('Revisar: Scripts de abertura profissional', 5);
+  addBullet('Praticar: 3 sessões seguidas focando apenas na abertura', 5);
+  
+  addSectionTitle('Se "Descoberta de Situação" está baixa (<70)', 3);
+  addBullet('Estudar: Framework de perguntas abertas', 5);
+  addBullet('Praticar: Criar lista de 20 perguntas de situação', 5);
+  
+  addSectionTitle('Se "Identificação de Problemas" está baixa (<70)', 3);
+  addBullet('Estudar: Técnicas de escuta ativa', 5);
+  addBullet('Praticar: Aprofundar em cada problema mencionado', 5);
+  
+  addSectionTitle('Se "Amplificação de Implicações" está baixa (<70)', 3);
+  addBullet('Estudar: Custo de oportunidade e TCO', 5);
+  addBullet('Praticar: Perguntar "E qual o impacto disso?" repetidamente', 5);
+  
+  addSectionTitle('Se "Apresentação de Valor" está baixa (<70)', 3);
+  addBullet('Estudar: Como quantificar benefícios', 5);
+  addBullet('Praticar: Usar números em vez de adjetivos genéricos', 5);
+  
+  addSectionTitle('Se "Tratamento de Objeções" está baixa (<70)', 3);
+  addBullet('Estudar: Framework de objeções (Escutar → Validar → Responder → Confirmar)', 5);
+  addBullet('Praticar: Personas Hard com múltiplas objeções', 5);
+  
+  addSectionTitle('Se "Fechamento" está baixa (<70)', 3);
+  addBullet('Estudar: Técnicas de assumptive close e next steps', 5);
+  addBullet('Praticar: Closing Calls exclusivamente por 1 semana', 5);
+
+  // =====================
+  // 15. ARQUITETURA TÉCNICA
+  // =====================
+  doc.addPage();
+  yPos = margin;
+  
+  addSectionTitle('15. Arquitetura Técnica', 1);
+  addParagraph(
+    'Visão técnica da arquitetura da plataforma para stakeholders e desenvolvedores.'
+  );
   
   addSectionTitle('Stack Tecnológico', 2);
-  addParagraph(
-    'Frontend:\n' +
-    '• React 18.3 + TypeScript\n' +
-    '• Vite (build tool)\n' +
-    '• Tailwind CSS (estilização)\n' +
-    '• Shadcn/ui (componentes)\n' +
-    '• React Router (navegação)\n' +
-    '• Recharts (gráficos)\n' +
-    '• TanStack Query (cache e sincronização)'
-  );
   
-  addParagraph(
-    'Backend:\n' +
-    '• Supabase (BaaS completo)\n' +
-    '• PostgreSQL (banco de dados)\n' +
-    '• Edge Functions (Deno runtime)\n' +
-    '• Row Level Security (RLS)\n' +
-    '• Realtime subscriptions'
-  );
+  addSectionTitle('Frontend', 3);
+  addBullet('React 18 com TypeScript', 5);
+  addBullet('Vite para build e hot reload', 5);
+  addBullet('TailwindCSS para estilização', 5);
+  addBullet('shadcn/ui para componentes', 5);
+  addBullet('TanStack Query para gerenciamento de estado', 5);
+  addBullet('Recharts para visualizações', 5);
   
-  addParagraph(
-    'Inteligência Artificial:\n' +
-    '• Lovable AI Gateway\n' +
-    '• Google Gemini 2.5 Flash\n' +
-    '• Análise de linguagem natural\n' +
-    '• Geração de feedback contextual'
-  );
-
+  addSectionTitle('Backend (Supabase)', 3);
+  addBullet('PostgreSQL para banco de dados', 5);
+  addBullet('Row Level Security (RLS) para segurança', 5);
+  addBullet('Edge Functions (Deno) para lógica serverless', 5);
+  addBullet('Realtime subscriptions para updates em tempo real', 5);
+  
+  addSectionTitle('IA e Processamento', 3);
+  addBullet('Google Gemini 2.5 Flash para avaliação', 5);
+  addBullet('Lovable AI Gateway para acesso aos modelos', 5);
+  addBullet('Processamento de áudio em tempo real', 5);
+  
   addSectionTitle('Tabelas do Banco de Dados', 2);
+  addParagraph('1. profiles: Dados dos usuários (nome, avatar)');
+  addParagraph('2. personas: Definições de personas');
+  addParagraph('3. roleplay_sessions: Registros de sessões');
+  addParagraph('4. session_messages: Mensagens trocadas');
+  addParagraph('5. competency_scores: Scores detalhados por competência');
+  addParagraph('6. session_recommendations: Recomendações geradas');
+  addParagraph('7. achievement_definitions: Definições de achievements');
+  addParagraph('8. user_achievements: Achievements desbloqueados');
+  addParagraph('9. competency_criteria: Definições dos 35 critérios');
   
-  checkPageBreak(60);
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Tabela', 'Propósito', 'Relações']],
-    body: [
-      ['profiles', 'Dados dos usuários', 'Vinculada a auth.users'],
-      ['personas', 'Personagens para roleplay', 'Independente'],
-      ['roleplay_sessions', 'Sessões de treinamento', 'user_id → profiles, persona_id → personas'],
-      ['session_messages', 'Mensagens das conversas', 'session_id → roleplay_sessions'],
-      ['competency_scores', 'Avaliações por competência', 'session_id → roleplay_sessions'],
-      ['user_insights', 'Análises consolidadas', 'user_id → profiles'],
-      ['user_roles', 'Papéis e permissões', 'user_id → profiles'],
-    ],
-    theme: 'grid',
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [51, 51, 51] },
-    columnStyles: { 2: { cellWidth: 60 } },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 10;
-
   addSectionTitle('Edge Functions', 2);
-  
-  checkPageBreak(50);
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Função', 'Propósito', 'Modelo IA']],
-    body: [
-      ['chat-roleplay', 'Conversa em tempo real com persona', 'Gemini 2.5 Flash'],
-      ['evaluate-competencies', 'Avalia sessão nas 7 competências', 'Gemini 2.5 Flash'],
-      ['generate-insights', 'Gera análise consolidada', 'Gemini 2.5 Flash'],
-      ['realtime-voice', 'Transcrição de áudio para texto', 'Gemini 2.5 Flash'],
-      ['cleanup-sessions', 'Limpa sessões abandonadas', 'N/A'],
-    ],
-    theme: 'striped',
-    styles: { fontSize: 9, cellPadding: 3 },
-    headStyles: { fillColor: [51, 51, 51] },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 10;
+  addParagraph('1. chat-roleplay: Gera respostas da persona');
+  addParagraph('2. evaluate-competencies: Avalia sessão e gera scores/feedback');
+  addParagraph('3. generate-insights: Cria análises e recomendações');
+  addParagraph('4. realtime-voice: Gerencia conversas por voz');
+  addParagraph('5. cleanup-sessions: Limpa sessões abandonadas');
 
   // =====================
-  // 11. SEGURANÇA E RLS
+  // 16. SEGURANÇA E ROW LEVEL SECURITY
   // =====================
   doc.addPage();
   yPos = margin;
   
-  addSectionTitle('11. Segurança e Row Level Security', 1);
+  addSectionTitle('16. Segurança e Row Level Security', 1);
   addParagraph(
-    'A plataforma implementa Row Level Security (RLS) em todas as tabelas sensíveis, garantindo que usuários só acessem seus próprios dados.'
+    'A plataforma implementa Row Level Security (RLS) para garantir que cada usuário só acesse seus próprios dados.'
   );
   
-  addSectionTitle('Políticas de Acesso', 2);
+  addSectionTitle('Princípios de Segurança', 2);
+  addBullet('Autenticação obrigatória para todas as funcionalidades', 5);
+  addBullet('Isolamento de dados por usuário via RLS', 5);
+  addBullet('API Keys gerenciadas via Supabase Secrets', 5);
+  addBullet('Edge Functions com validação de JWT', 5);
   
-  checkPageBreak(60);
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Tabela', 'Política', 'Regra']],
-    body: [
-      ['profiles', 'SELECT', 'auth.uid() = id OR has_role(admin)'],
-      ['profiles', 'UPDATE', 'auth.uid() = id'],
-      ['roleplay_sessions', 'SELECT', 'auth.uid() = user_id OR has_role(admin)'],
-      ['roleplay_sessions', 'INSERT', 'auth.uid() = user_id'],
-      ['roleplay_sessions', 'UPDATE', 'auth.uid() = user_id'],
-      ['competency_scores', 'SELECT', 'session.user_id = auth.uid() OR has_role(admin)'],
-      ['competency_scores', 'INSERT', 'session.user_id = auth.uid()'],
-      ['user_insights', 'SELECT', 'auth.uid() = user_id'],
-    ],
-    theme: 'grid',
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [51, 51, 51] },
-    columnStyles: { 2: { cellWidth: 80 } },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 10;
-  
-  addSectionTitle('Autenticação', 2);
-  addParagraph(
-    '• JWT tokens fornecidos por Supabase Auth\n' +
-    '• Auto-confirm de email habilitado (desenvolvimento)\n' +
-    '• Session management automático\n' +
-    '• Protected routes no frontend'
-  );
+  addSectionTitle('Políticas RLS Implementadas', 2);
+  addParagraph('roleplay_sessions:');
+  addBullet('Usuários só visualizam suas próprias sessões', 5);
+  addBullet('Usuários só podem criar sessões para si mesmos', 5);
+  addParagraph('competency_scores:');
+  addBullet('Usuários só visualizam scores de suas sessões', 5);
+  addParagraph('user_achievements:');
+  addBullet('Usuários só visualizam seus próprios achievements', 5);
 
   // =====================
-  // 12. GLOSSÁRIO
+  // 17. GLOSSÁRIO
   // =====================
   doc.addPage();
   yPos = margin;
   
-  addSectionTitle('12. Glossário', 1);
+  addSectionTitle('17. Glossário', 1);
+  addParagraph('Definições de termos importantes utilizados na plataforma.');
+  yPos += 5;
   
-  checkPageBreak(80);
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Termo', 'Definição']],
-    body: [
-      ['SPIN Selling', 'Metodologia de vendas consultivas baseada em 4 tipos de perguntas'],
-      ['Situation', 'Perguntas sobre a situação atual do cliente'],
-      ['Problem', 'Perguntas que identificam dificuldades e insatisfações'],
-      ['Implication', 'Perguntas sobre consequências dos problemas'],
-      ['Need-payoff', 'Perguntas sobre o valor da solução'],
-      ['Persona', 'Personagem simulado alimentado por IA para roleplay'],
-      ['Roleplay', 'Simulação de conversa comercial para treinamento'],
-      ['Edge Function', 'Função serverless que roda na borda (próximo ao usuário)'],
-      ['RLS', 'Row Level Security - Segurança a nível de linha no banco'],
-      ['JWT', 'JSON Web Token - Token de autenticação'],
-      ['Overall Score', 'Pontuação geral da sessão (0-100)'],
-      ['Sub-scores', 'Pontuações detalhadas por sub-critério'],
-      ['Talk/Listen Ratio', 'Proporção entre tempo falando e ouvindo'],
-      ['Filler Words', 'Palavras de preenchimento ("né", "tipo", "ah")'],
-      ['ROI', 'Return on Investment - Retorno sobre investimento'],
-    ],
-    theme: 'striped',
-    styles: { fontSize: 9, cellPadding: 3 },
-    headStyles: { fillColor: [51, 51, 51] },
-    columnStyles: { 0: { cellWidth: 40 }, 1: { cellWidth: 130 } },
+  const glossary = [
+    { term: 'SPIN Selling', definition: 'Metodologia de vendas consultivas baseada em 4 tipos de perguntas: Situation, Problem, Implication, Need-Payoff.' },
+    { term: 'Persona', definition: 'Personagem fictício alimentado por IA que simula um tomador de decisão em contexto empresarial.' },
+    { term: 'Roleplay', definition: 'Simulação de conversa comercial entre vendedor e persona para prática de técnicas.' },
+    { term: 'Discovery Call', definition: 'Primeira reunião com cliente para mapear situação e identificar problemas.' },
+    { term: 'Demo Call', definition: 'Reunião de apresentação da solução após entendimento inicial do cliente.' },
+    { term: 'Negotiation Call', definition: 'Reunião de discussão de proposta comercial e tratamento de objeções.' },
+    { term: 'Closing Call', definition: 'Reunião final para fechamento do negócio e definição de próximos passos.' },
+    { term: 'Competência', definition: 'Uma das 7 áreas avaliadas na sessão.' },
+    { term: 'Critério', definition: 'Um dos 35 pontos específicos avaliados dentro das 7 competências.' },
+    { term: 'Score Overall', definition: 'Pontuação geral da sessão calculada pela média ponderada dos 35 critérios.' },
+    { term: 'Talk/Listen Ratio', definition: 'Proporção entre tempo falado pelo vendedor vs. tempo ouvindo o cliente.' },
+    { term: 'Filler Words', definition: 'Palavras de preenchimento como "é", "tipo", "né" que indicam nervosismo.' },
+    { term: 'Speech Speed', definition: 'Velocidade de fala medida em palavras por minuto.' },
+    { term: 'Achievement', definition: 'Conquista desbloqueada ao atingir determinados marcos de progresso.' },
+    { term: 'Action Plan', definition: 'Plano de ação personalizado com recomendações táticas, estratégicas e comportamentais.' },
+    { term: 'RLS', definition: 'Row Level Security - Sistema de segurança que garante isolamento de dados por usuário.' },
+    { term: 'Edge Function', definition: 'Função serverless executada no backend para lógica de negócio.' },
+    { term: 'Heatmap', definition: 'Mapa de calor visual mostrando performance em cada competência com cores.' }
+  ];
+  
+  glossary.forEach(item => {
+    addSectionTitle(item.term, 3);
+    addParagraph(item.definition);
+    yPos += 3;
   });
-  yPos = (doc as any).lastAutoTable.finalY + 10;
 
   // =====================
-  // FOOTER - ÚLTIMA PÁGINA
+  // FOOTER
   // =====================
   doc.addPage();
   yPos = pageHeight / 2 - 30;
   
-  doc.setFontSize(16);
+  doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text('Documentação Técnica Completa', pageWidth / 2, yPos, { align: 'center' });
-  
-  yPos += 15;
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'normal');
   doc.text('Plataforma de Treinamento SPIN Selling com IA', pageWidth / 2, yPos, { align: 'center' });
   
-  yPos += 30;
+  yPos += 15;
   doc.setFontSize(10);
-  doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, pageWidth / 2, yPos, { align: 'center' });
-  doc.text('Versão 1.0.0', pageWidth / 2, yPos + 10, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.text('Transforme sua equipe de vendas em especialistas consultivos', pageWidth / 2, yPos, { align: 'center' });
   
-  yPos += 30;
+  yPos += 20;
   doc.setFontSize(9);
-  doc.setTextColor(100, 100, 100);
-  doc.text('Este documento foi gerado automaticamente pela plataforma', pageWidth / 2, yPos, { align: 'center' });
-  doc.text('e reflete o estado atual do sistema.', pageWidth / 2, yPos + 7, { align: 'center' });
+  doc.text(`Documentação gerada em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, pageWidth / 2, yPos, { align: 'center' });
+  
+  yPos += 10;
+  doc.text('Versão 2.0.0 - Guia Completo de Uso e Progressão', pageWidth / 2, yPos, { align: 'center' });
 
-  // Save PDF
   const timestamp = new Date().toISOString().split('T')[0];
-  doc.save(`Documentacao_Tecnica_SPIN_${timestamp}.pdf`);
+  doc.save(`Documentacao-Tecnica-SPIN-v2.0-${timestamp}.pdf`);
 };
