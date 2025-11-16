@@ -134,12 +134,7 @@ Mantenha o papel consistente durante toda a conversa.`;
   
   const openAISocket = new WebSocket(
     `wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`,
-    {
-      headers: {
-        "Authorization": `Bearer ${openAIKey}`,
-        "OpenAI-Beta": "realtime=v1"
-      }
-    }
+    ["realtime", `openai-insecure-api-key.${openAIKey}`, "openai-beta.realtime-v1"]
   );
 
   // Message queue to buffer client messages until OpenAI is ready
