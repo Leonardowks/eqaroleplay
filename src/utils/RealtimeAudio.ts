@@ -67,51 +67,64 @@ export class AudioRecorder {
     }
   }
 
-  stop() {
+  async stop(): Promise<void> {
+    console.log('🛑 Stopping audio recorder...');
+    
     try {
+      // 1. Desconectar source
       if (this.source) {
-        this.source.disconnect();
+        try {
+          this.source.disconnect();
+          console.log('✅ MediaStreamSource disconnected');
+        } catch (error) {
+          console.warn('⚠️ Error disconnecting source:', error);
+        }
         this.source = null;
       }
-    } catch (error) {
-      console.error("Error disconnecting source:", error);
-    }
-    
-    try {
+      
+      // 2. Desconectar e fechar worklet
       if (this.workletNode) {
-        this.workletNode.disconnect();
-        this.workletNode.port.close();
+        try {
+          this.workletNode.port.close();
+          this.workletNode.disconnect();
+          console.log('✅ AudioWorklet disconnected');
+        } catch (error) {
+          console.warn('⚠️ Error disconnecting worklet:', error);
+        }
         this.workletNode = null;
       }
-    } catch (error) {
-      console.error("Error disconnecting worklet:", error);
-    }
-    
-    try {
+      
+      // 3. Desconectar processor (fallback)
       if (this.processor) {
-        this.processor.disconnect();
+        try {
+          this.processor.disconnect();
+          console.log('✅ ScriptProcessor disconnected');
+        } catch (error) {
+          console.warn('⚠️ Error disconnecting processor:', error);
+        }
         this.processor = null;
       }
-    } catch (error) {
-      console.error("Error disconnecting processor:", error);
-    }
-    
-    try {
+      
+      // 4. Parar todas as tracks do MediaStream
       if (this.stream) {
-        this.stream.getTracks().forEach((track) => track.stop());
+        this.stream.getTracks().forEach((track) => {
+          track.stop();
+          console.log(`✅ ${track.kind} track stopped`);
+        });
         this.stream = null;
       }
-    } catch (error) {
-      console.error("Error stopping stream:", error);
-    }
-    
-    try {
+      
+      // 5. Fechar AudioContext com await
       if (this.audioContext && this.audioContext.state !== 'closed') {
-        this.audioContext.close();
+        await this.audioContext.close();
+        console.log('✅ AudioContext closed');
         this.audioContext = null;
       }
+      
+      console.log('✅ Audio recorder stopped and cleaned up completely');
     } catch (error) {
-      console.error("Error closing audio context:", error);
+      console.error('❌ Error stopping recorder:', error);
+      throw error;
     }
   }
 }
@@ -181,6 +194,7 @@ export class AudioQueue {
   private queue: Uint8Array[] = [];
   private isPlaying = false;
   private audioContext: AudioContext;
+  private currentSource: AudioBufferSourceNode | null = null;
 
   constructor(audioContext: AudioContext) {
     this.audioContext = audioContext;
@@ -205,6 +219,7 @@ export class AudioQueue {
   private async playNext() {
     if (this.queue.length === 0) {
       this.isPlaying = false;
+      this.currentSource = null;
       return;
     }
 
@@ -233,10 +248,13 @@ export class AudioQueue {
       source.buffer = audioBuffer;
       source.connect(this.audioContext.destination);
 
+      this.currentSource = source;
+
       // ✅ Adicionar cleanup explícito após reprodução
       source.onended = () => {
         // Desconectar source para liberar memória
         source.disconnect();
+        this.currentSource = null;
         
         // Delay reduzido para 20ms entre chunks (mais fluido)
         setTimeout(() => this.playNext(), 20);
@@ -257,6 +275,8 @@ export class AudioQueue {
           console.error('❌ Failed to resume AudioContext:', resumeError);
         }
       }
+      
+      this.currentSource = null;
       
       // Delay também no caso de erro
       setTimeout(() => this.playNext(), 20);
@@ -282,17 +302,37 @@ export class AudioQueue {
   public destroy() {
     console.log('🧹 Cleaning up AudioQueue resources');
     
-    // Limpar fila
-    this.queue = [];
+    // 1. Parar e desconectar source ativo
+    if (this.currentSource) {
+      try {
+        this.currentSource.stop();
+        this.currentSource.disconnect();
+        console.log('✅ Active BufferSource stopped');
+      } catch (error) {
+        console.warn('⚠️ Error stopping source (may be already stopped):', error);
+      }
+      this.currentSource = null;
+    }
     
-    // Parar reprodução
+    // 2. Limpar fila
+    this.queue = [];
+    console.log('✅ Audio queue cleared');
+    
+    // 3. Parar reprodução
     this.isPlaying = false;
     
-    // Fechar AudioContext se ainda estiver aberto
-    if (this.audioContext.state !== 'closed') {
-      this.audioContext.close().catch(err => {
-        console.warn('⚠️ Error closing AudioContext:', err);
-      });
+    // 4. Fechar AudioContext
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      this.audioContext.close()
+        .then(() => {
+          console.log('✅ AudioContext closed successfully');
+        })
+        .catch(err => {
+          console.warn('⚠️ Error closing AudioContext:', err);
+        });
+      this.audioContext = null as any;
     }
+    
+    console.log('✅ AudioQueue destroyed completely');
   }
 }
