@@ -95,6 +95,27 @@ RITMO DE CONVERSA:
 
 LEMBRE-SE: Esta é uma CONVERSA POR VOZ. Seja CONCISO e NATURAL como em um telefonema real.`;
 
+  // Voice mapping by persona gender/personality
+  const voiceMapping: Record<string, string> = {
+    // Feminine voices
+    "Marina E-commerce": "shimmer",        // Young and energetic
+    "Juliana Marketing": "coral",          // Professional and confident
+    "Fernanda RH": "alloy",                // Neutral and welcoming
+    "Patricia CFO": "coral",               // Serious and analytical
+    
+    // Masculine voices
+    "André Pequeno Negócio": "echo",       // Friendly and accessible
+    "Dr. Roberto Advogado": "sage",        // Formal and authoritative
+    "Gustavo TI": "ash",                   // Technical and direct
+    "Ricardo Startup": "echo",             // Young and dynamic
+    "Carlos Industrial": "sage",           // Mature and experienced
+    "Paulo CFO": "ash",                    // Analytical and direct
+  };
+
+  // Select voice with fallback to alloy
+  const selectedVoice = voiceMapping[persona.name] || "alloy";
+  console.log(`[${sessionId}] Persona: ${persona.name}, Selected Voice: ${selectedVoice}`);
+
   // Get ephemeral token from OpenAI
   console.log("Requesting ephemeral token from OpenAI...");
   let ephemeralKey: string;
@@ -108,7 +129,7 @@ LEMBRE-SE: Esta é uma CONVERSA POR VOZ. Seja CONCISO e NATURAL como em um telef
       },
       body: JSON.stringify({
         model: "gpt-4o-realtime-preview-2024-12-17",
-        voice: "alloy",
+        voice: selectedVoice,
         instructions: systemPrompt,
         input_audio_format: "pcm16",
         output_audio_format: "pcm16",
