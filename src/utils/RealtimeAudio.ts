@@ -1,13 +1,16 @@
 export class AudioRecorder {
   private stream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
+  private workletNode: AudioWorkletNode | null = null;
   private processor: ScriptProcessorNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
+  private useWorklet: boolean = false;
 
   constructor(private onAudioData: (audioData: Float32Array) => void) {}
 
   async start() {
     try {
+      // Request microphone permission first
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           sampleRate: 24000,
@@ -18,20 +21,46 @@ export class AudioRecorder {
         },
       });
 
+      // Create AudioContext AFTER user interaction (Safari requirement)
       this.audioContext = new AudioContext({
         sampleRate: 24000,
       });
 
+      // Resume context if suspended (Safari autoplay policy)
+      if (this.audioContext.state === 'suspended') {
+        console.log('AudioContext suspended, resuming...');
+        await this.audioContext.resume();
+      }
+
       this.source = this.audioContext.createMediaStreamSource(this.stream);
-      this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
 
-      this.processor.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        this.onAudioData(new Float32Array(inputData));
-      };
+      // Try AudioWorklet first (modern browsers, better performance)
+      try {
+        await this.audioContext.audioWorklet.addModule('/src/utils/audio-processor.worklet.ts');
+        this.workletNode = new AudioWorkletNode(this.audioContext, 'audio-recorder-processor');
+        
+        this.workletNode.port.onmessage = (event) => {
+          this.onAudioData(new Float32Array(event.data));
+        };
 
-      this.source.connect(this.processor);
-      this.processor.connect(this.audioContext.destination);
+        this.source.connect(this.workletNode);
+        this.workletNode.connect(this.audioContext.destination);
+        this.useWorklet = true;
+        console.log('✅ Using AudioWorklet (modern, non-blocking)');
+      } catch (workletError) {
+        // Fallback to ScriptProcessorNode for older browsers
+        console.warn('⚠️ AudioWorklet not supported, using ScriptProcessorNode fallback');
+        this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+        
+        this.processor.onaudioprocess = (e) => {
+          const inputData = e.inputBuffer.getChannelData(0);
+          this.onAudioData(new Float32Array(inputData));
+        };
+        
+        this.source.connect(this.processor);
+        this.processor.connect(this.audioContext.destination);
+        this.useWorklet = false;
+      }
     } catch (error) {
       console.error("Error accessing microphone:", error);
       throw error;
@@ -46,6 +75,16 @@ export class AudioRecorder {
       }
     } catch (error) {
       console.error("Error disconnecting source:", error);
+    }
+    
+    try {
+      if (this.workletNode) {
+        this.workletNode.disconnect();
+        this.workletNode.port.close();
+        this.workletNode = null;
+      }
+    } catch (error) {
+      console.error("Error disconnecting worklet:", error);
     }
     
     try {
