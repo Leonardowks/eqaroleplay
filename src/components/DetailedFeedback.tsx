@@ -1,6 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Lightbulb, CheckCircle2 } from 'lucide-react';
+import { Lightbulb, CheckCircle2, BarChart3 } from 'lucide-react';
+import SubScoresDetail from './SubScoresDetail';
 import {
   Radar,
   RadarChart,
@@ -14,6 +15,7 @@ interface Competency {
   competency: string;
   score: number;
   sub_scores?: Record<string, number>;
+  sub_scores_feedback?: Record<string, string>;
   feedback: string;
   ai_suggestions?: string[];
   spin_category?: string;
@@ -100,31 +102,49 @@ const DetailedFeedback = ({
 
             {/* Radar Chart de Subcritérios */}
             {radarData.length > 0 && (
-              <div className="h-56 mb-6 bg-muted/20 rounded-lg p-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={radarData}>
-                    <PolarGrid stroke="hsl(var(--border))" />
-                    <PolarAngleAxis
-                      dataKey="criterion"
-                      tick={{ 
-                        fill: 'hsl(var(--foreground))', 
-                        fontSize: 12,
-                        fontWeight: 500 
-                      }}
-                    />
-                    <PolarRadiusAxis 
-                      domain={[0, 100]} 
-                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} 
-                    />
-                    <Radar
-                      dataKey="score"
-                      stroke="hsl(var(--primary))"
-                      fill="hsl(var(--primary))"
-                      fillOpacity={0.5}
-                      strokeWidth={2}
-                    />
-                  </RadarChart>
-                </ResponsiveContainer>
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                    Visão Geral dos Critérios
+                  </h4>
+                </div>
+                <div className="h-56 bg-muted/20 rounded-lg p-4">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart data={radarData}>
+                      <PolarGrid stroke="hsl(var(--border))" />
+                      <PolarAngleAxis
+                        dataKey="criterion"
+                        tick={{ 
+                          fill: 'hsl(var(--foreground))', 
+                          fontSize: 12,
+                          fontWeight: 500 
+                        }}
+                      />
+                      <PolarRadiusAxis 
+                        domain={[0, 100]} 
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} 
+                      />
+                      <Radar
+                        dataKey="score"
+                        stroke="hsl(var(--primary))"
+                        fill="hsl(var(--primary))"
+                        fillOpacity={0.5}
+                        strokeWidth={2}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {/* Sub-Scores Detalhados */}
+            {comp.sub_scores && Object.keys(comp.sub_scores).length > 0 && (
+              <div className="mb-6">
+                <SubScoresDetail 
+                  subScores={comp.sub_scores}
+                  subScoresFeedback={comp.sub_scores_feedback}
+                />
               </div>
             )}
 

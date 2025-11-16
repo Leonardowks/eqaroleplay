@@ -27,6 +27,7 @@ interface Competency {
   feedback: string | null;
   spin_category?: string | null;
   sub_scores?: any;
+  sub_scores_feedback?: any;
   ai_suggestions?: any;
 }
 
@@ -217,18 +218,19 @@ const SessionDetail = () => {
             <>
               <div className="space-y-6">
                 <h2 className="text-2xl font-semibold">Avaliação Detalhada SPIN Selling</h2>
-                <DetailedFeedback 
-                  competencies={competencies.map(c => ({
-                    competency: c.competency_name,
-                    score: c.score,
-                    feedback: c.feedback || '',
-                    spin_category: c.spin_category,
-                    sub_scores: c.sub_scores,
-                    ai_suggestions: c.ai_suggestions
-                  }))}
-                  meetingType={session.meeting_type}
-                  personaDifficulty={session.personas?.difficulty}
-                />
+              <DetailedFeedback 
+                competencies={competencies.map(c => ({
+                  competency: c.competency_name,
+                  score: c.score,
+                  feedback: c.feedback || '',
+                  spin_category: c.spin_category,
+                  sub_scores: c.sub_scores,
+                  sub_scores_feedback: c.sub_scores_feedback,
+                  ai_suggestions: c.ai_suggestions
+                }))}
+                meetingType={session.meeting_type}
+                personaDifficulty={session.personas?.difficulty}
+              />
               </div>
 
               {/* Insights Section */}
