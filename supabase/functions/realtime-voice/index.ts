@@ -223,12 +223,13 @@ Mantenha o papel consistente durante toda a conversa.`;
               input_audio_transcription: {
                 model: "whisper-1",
               },
-              turn_detection: {
-                type: "server_vad",
-                threshold: 0.5,
-                prefix_padding_ms: 600,
-                silence_duration_ms: 1500,
-              },
+        turn_detection: {
+          type: "server_vad",
+          threshold: 0.7,
+          prefix_padding_ms: 900,
+          silence_duration_ms: 2000,
+          create_response: true
+        },
               temperature: 0.9,
               max_response_output_tokens: 150,
             },
