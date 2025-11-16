@@ -123,69 +123,23 @@ Mantenha o papel consistente durante toda a conversa.`;
   const selectedVoice = voiceMapping[persona.name] || "alloy";
   console.log(`[${sessionId}] ✅ Step 2: Voice selected - ${selectedVoice}`);
 
-  // Get ephemeral token from OpenAI FIRST before any WebSocket upgrade
-  console.log(`[${sessionId}] 🔑 Step 3: Requesting ephemeral token from OpenAI...`);
-  
-  let ephemeralKey: string;
-  try {
-    console.log(`[${sessionId}] 🎯 Step 3: Requesting ephemeral token...`);
-    console.log(`[${sessionId}] 📋 Using GA model: gpt-4o-realtime-preview-2024-12-17, voice: ${selectedVoice}`);
-    
-    const tokenResponse = await fetch("https://api.openai.com/v1/realtime/sessions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${openAIKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-realtime-preview-2024-12-17",
-        voice: selectedVoice,
-      }),
-    });
-
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error(`[${sessionId}] ❌ Token request failed:`, {
-        status: tokenResponse.status,
-        statusText: tokenResponse.statusText,
-        error: errorText
-      });
-      return new Response(`Failed to initialize OpenAI session: ${errorText}`, { status: 500 });
-    }
-
-    const tokenData = await tokenResponse.json();
-    ephemeralKey = tokenData.client_secret?.value;
-    
-    if (!ephemeralKey) {
-      console.error(`[${sessionId}] ❌ No ephemeral key in response:`, JSON.stringify(tokenData, null, 2));
-      return new Response("Failed to get ephemeral key from OpenAI", { status: 500 });
-    }
-    
-    console.log(`[${sessionId}] ✅ Ephemeral token obtained`);
-    console.log(`[${sessionId}] 📋 Token info:`, JSON.stringify({
-      hasClientSecret: !!tokenData.client_secret,
-      keyLength: ephemeralKey.length,
-      model: tokenData.model,
-      expiresAt: tokenData.expires_at
-    }, null, 2));
-  } catch (error) {
-    console.error(`[${sessionId}] ❌ Error getting ephemeral token:`, error);
-    return new Response("Failed to initialize OpenAI session", { status: 500 });
-  }
-
-  // Connect to OpenAI BEFORE upgrading client WebSocket
-  // Using native Deno WebSocket with ephemeral token (no custom headers needed)
-  console.log(`[${sessionId}] 🔌 Step 4: Connecting to OpenAI WebSocket...`);
+  // Connect directly to OpenAI Realtime Beta API
+  console.log(`[${sessionId}] 🔌 Step 3: Connecting directly to OpenAI WebSocket (Beta API)...`);
+  console.log(`[${sessionId}] 📋 Using Beta model: gpt-4o-realtime-preview-2024-12-17, voice: ${selectedVoice}`);
   console.log(`[${sessionId}] 📋 WebSocket config:`, {
     url: `wss://api.openai.com/v1/realtime`,
     model: "gpt-4o-realtime-preview-2024-12-17",
-    protocol: "realtime with ephemeral key",
-    keyLength: ephemeralKey.length
+    protocol: "Beta API with direct API key"
   });
   
   const openAISocket = new WebSocket(
     `wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`,
-    ["realtime", `openai-insecure-api-key.${ephemeralKey}`]
+    {
+      headers: {
+        "Authorization": `Bearer ${openAIKey}`,
+        "OpenAI-Beta": "realtime=v1"
+      }
+    }
   );
 
   // Message queue to buffer client messages until OpenAI is ready
@@ -550,14 +504,14 @@ Mantenha o papel consistente durante toda a conversa.`;
   };
 
   // NOW upgrade client WebSocket AFTER OpenAI setup
-  console.log(`[${sessionId}] 🔄 Step 5: Upgrading client WebSocket...`);
+  console.log(`[${sessionId}] 🔄 Step 4: Upgrading client WebSocket...`);
   const upgradeResult = Deno.upgradeWebSocket(req);
   clientSocket = upgradeResult.socket;
   const response = upgradeResult.response;
 
   // Client socket handlers
   clientSocket.onopen = () => {
-    console.log(`[${sessionId}] ✅ Step 5: Client WebSocket connected`);
+    console.log(`[${sessionId}] ✅ Step 4: Client WebSocket connected`);
     console.log(`[${sessionId}] 🎉 FULL SYSTEM READY - Audio pipeline established`);
   };
 
