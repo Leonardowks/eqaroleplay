@@ -54,6 +54,7 @@ const VoiceChat = () => {
   const isReconnectingRef = useRef(false);
   const lastActivityRef = useRef<number>(Date.now());
   const activityCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isSessionEndedRef = useRef(false);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -296,6 +297,12 @@ const VoiceChat = () => {
       };
 
       wsRef.current.onmessage = async (event) => {
+        // Ignore messages if session ended
+        if (isSessionEndedRef.current) {
+          console.log('Session ended, ignoring message');
+          return;
+        }
+
         const data = JSON.parse(event.data);
         console.log("Received event:", data.type);
 
@@ -438,7 +445,27 @@ const VoiceChat = () => {
   }, []);
 
   const handleEndSession = useCallback(async () => {
+    if (!sessionId || isSessionEndedRef.current) return;
+
+    console.log("Ending session:", sessionId);
+    isSessionEndedRef.current = true;
+    
     try {
+      // Send end signal to backend before closing
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        try {
+          console.log("Sending session.end to backend");
+          wsRef.current.send(JSON.stringify({ 
+            type: 'session.end' 
+          }));
+          
+          // Wait a bit for message to be processed
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (error) {
+          console.error("Error sending session.end:", error);
+        }
+      }
+      
       if (wsRef.current) {
         wsRef.current.close();
       }
@@ -587,6 +614,7 @@ const VoiceChat = () => {
               variant="destructive"
               size="lg"
               className="gap-2"
+              disabled={isSessionEndedRef.current}
             >
               <PhoneOff className="w-5 h-5" />
               Finalizar Sessão
