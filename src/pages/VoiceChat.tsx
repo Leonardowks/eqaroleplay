@@ -12,15 +12,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { AudioRecorder, encodeAudioForAPI, AudioQueue } from "@/utils/RealtimeAudio";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { triggerHaptic, triggerSuccessHaptic, triggerErrorHaptic } from "@/utils/haptics";
-import { Mic, MicOff, PhoneOff, Volume2, ArrowLeft, Clock, Wifi, WifiOff, Activity } from "lucide-react";
+import { Mic, MicOff, PhoneOff, Volume2, ArrowLeft, Clock, Wifi, WifiOff, Activity, AlertCircle } from "lucide-react";
 import Header from "@/components/Header";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import SessionSummaryModal from "@/components/SessionSummaryModal";
+import { AudioPerformanceTest } from "@/components/AudioPerformanceTest";
+import { AudioDiagnostics } from "@/components/AudioDiagnostics";
 import { cn } from "@/lib/utils";
 
 // Feature flag: usar novo sistema de áudio otimizado
@@ -58,6 +61,9 @@ const VoiceChat = () => {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [audioInitialized, setAudioInitialized] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [showPerformanceTest, setShowPerformanceTest] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const recorderRef = useRef<AudioRecorder | null>(null);
@@ -332,9 +338,11 @@ const VoiceChat = () => {
       }
     } catch (error) {
       triggerErrorHaptic();
+      const errorMessage = error instanceof Error ? error.message : "É necessário permitir o acesso ao microfone";
+      setAudioError(errorMessage);
       toast({
         title: "Permissão Negada",
-        description: "É necessário permitir o acesso ao microfone",
+        description: errorMessage,
         variant: "destructive",
       });
       navigate("/roleplay");
@@ -356,10 +364,12 @@ const VoiceChat = () => {
       }
     } catch (error) {
       console.error('Failed to initialize audio:', error);
+      const errorMessage = error instanceof Error ? error.message : "Falha ao inicializar áudio";
+      setAudioError(`Erro de inicialização: ${errorMessage}`);
       triggerErrorHaptic();
       toast({
         title: "Erro",
-        description: "Falha ao inicializar áudio",
+        description: "Falha ao inicializar áudio. Tente executar o diagnóstico.",
         variant: "destructive",
       });
     }
@@ -720,6 +730,8 @@ const VoiceChat = () => {
       let errorDescription = "Não foi possível estabelecer conexão com o sistema de voz";
       
       if (error instanceof Error) {
+        setAudioError(`Erro WebSocket: ${error.message}`);
+        
         if (error.message.includes("timeout")) {
           errorTitle = "Tempo Esgotado";
           errorDescription = "A conexão demorou muito para ser estabelecida. Verifique sua internet e tente novamente.";
@@ -730,6 +742,8 @@ const VoiceChat = () => {
           errorTitle = "Conexão Recusada";
           errorDescription = "O servidor não aceitou a conexão. Tente novamente em instantes.";
         }
+      } else {
+        setAudioError("Erro desconhecido de conexão");
       }
       
       toast({
@@ -759,9 +773,11 @@ const VoiceChat = () => {
       setIsRecording(true);
     } catch (error) {
       console.error("Error starting recording:", error);
+      const errorMessage = error instanceof Error ? error.message : "Não foi possível iniciar gravação";
+      setAudioError(`Erro de gravação: ${errorMessage}`);
       toast({
         title: "Erro",
-        description: "Não foi possível iniciar gravação",
+        description: "Não foi possível iniciar gravação. Verifique as permissões do microfone.",
         variant: "destructive",
       });
     }
@@ -1061,6 +1077,57 @@ const VoiceChat = () => {
           </div>
         )}
 
+        {/* Audio Error Alert */}
+        {audioError && (
+          <Alert variant="destructive" className="mt-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Problema de áudio detectado:</strong> {audioError}
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2 w-full"
+                onClick={() => {
+                  setAudioError(null);
+                  setShowDiagnostics(true);
+                }}
+              >
+                Executar Diagnóstico
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Performance Test & Diagnostics (Dev mode) */}
+        {ENABLE_AUDIO_METRICS && (
+          <div className="mt-6 space-y-4">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowDiagnostics(true)}
+                className="flex-1"
+              >
+                Diagnóstico de Áudio
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowPerformanceTest(true)}
+                className="flex-1"
+              >
+                Teste de Performance
+              </Button>
+            </div>
+
+            {showDiagnostics && (
+              <AudioDiagnostics onComplete={() => setShowDiagnostics(false)} />
+            )}
+
+            {showPerformanceTest && (
+              <AudioPerformanceTest />
+            )}
+          </div>
+        )}
+
         {/* Tips */}
         <div className="mt-6 bg-card rounded-lg p-6">
           <h3 className="font-semibold mb-3">💡 Dicas</h3>
@@ -1069,6 +1136,9 @@ const VoiceChat = () => {
             <li>• O sistema detecta automaticamente quando você termina de falar</li>
             <li>• Evite interromper enquanto a persona está falando</li>
             <li>• Use um ambiente silencioso para melhor experiência</li>
+            {ENABLE_AUDIO_METRICS && (
+              <li className="text-primary">• Use o Diagnóstico de Áudio para testar seu sistema antes de começar</li>
+            )}
           </ul>
         </div>
       </main>
