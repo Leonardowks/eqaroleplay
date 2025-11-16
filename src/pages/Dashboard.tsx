@@ -27,6 +27,7 @@ const Dashboard = () => {
   });
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
   const [competencyData, setCompetencyData] = useState<any[]>([]);
+  const [activeSessionsCount, setActiveSessionsCount] = useState(0);
 
   useEffect(() => {
     checkUser();
@@ -60,6 +61,15 @@ const Dashboard = () => {
       .select('*')
       .eq('user_id', user.id)
       .eq('status', 'completed');
+
+    // Load active sessions count
+    const { data: activeSessions } = await supabase
+      .from('roleplay_sessions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('status', 'active');
+
+    setActiveSessionsCount(activeSessions?.length || 0);
 
     if (sessions) {
       // Get recent sessions
@@ -161,7 +171,7 @@ const Dashboard = () => {
       
       <main className="container mx-auto px-6 py-8">
         {/* Welcome section */}
-        <div className="mb-8 flex justify-between items-start">
+        <div className="mb-8 flex flex-col sm:flex-row justify-between items-start gap-4">
           <div>
             <h1 className="text-3xl font-bold mb-2">
               Olá, {profile?.full_name || 'Vendedor'}! 👋
@@ -170,16 +180,29 @@ const Dashboard = () => {
               Confira seu desempenho e continue treinando.
             </p>
           </div>
-          <Button 
-            onClick={cleanupSessions}
-            variant="outline"
-            size="sm"
-            disabled={isCleaningUp}
-            className="gap-2"
-          >
-            <Trash2 className="w-4 h-4" />
-            {isCleaningUp ? 'Limpando...' : 'Limpar Sessões Órfãs'}
-          </Button>
+          <div className="flex gap-2">
+            {activeSessionsCount > 0 && (
+              <Button 
+                onClick={() => navigate('/active-sessions')}
+                variant="secondary"
+                size="sm"
+                className="gap-2"
+              >
+                <Clock className="w-4 h-4" />
+                {activeSessionsCount} Sessão(ões) Ativa(s)
+              </Button>
+            )}
+            <Button 
+              onClick={cleanupSessions}
+              variant="outline"
+              size="sm"
+              disabled={isCleaningUp}
+              className="gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              {isCleaningUp ? 'Limpando...' : 'Limpar Órfãs'}
+            </Button>
+          </div>
         </div>
 
         {/* Metrics cards */}

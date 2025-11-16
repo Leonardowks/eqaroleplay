@@ -299,6 +299,9 @@ const VoiceChat = () => {
         const data = JSON.parse(event.data);
         console.log("Received event:", data.type);
 
+        // Update last activity timestamp on any message
+        lastActivityRef.current = Date.now();
+
         if (data.type === "response.audio.delta") {
           setIsSpeaking(true);
           const binaryString = atob(data.delta);
@@ -407,6 +410,9 @@ const VoiceChat = () => {
     try {
       recorderRef.current = new AudioRecorder((audioData) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
+          // Update activity timestamp when sending audio
+          lastActivityRef.current = Date.now();
+          
           const encoded = encodeAudioForAPI(audioData);
           wsRef.current.send(JSON.stringify({
             type: "input_audio_buffer.append",

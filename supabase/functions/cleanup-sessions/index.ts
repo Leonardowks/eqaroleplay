@@ -15,47 +15,62 @@ serve(async (req) => {
   try {
     // Get authorization header
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'No authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const { scheduled } = await req.json().catch(() => ({ scheduled: false }));
 
     // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
-    // Get user from token
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    let userId: string | null = null;
 
-    if (authError || !user) {
-      console.error('Authentication error:', authError);
-      return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // If not a scheduled job, authenticate the user
+    if (!scheduled) {
+      if (!authHeader) {
+        return new Response(
+          JSON.stringify({ error: 'No authorization header' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Get user from token
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+
+      if (authError || !user) {
+        console.error('Authentication error:', authError);
+        return new Response(
+          JSON.stringify({ error: 'Invalid token' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      userId = user.id;
+      console.log(`Cleaning up sessions for user: ${userId}`);
+    } else {
+      console.log('Running scheduled cleanup for all users');
     }
-
-    console.log(`Cleaning up sessions for user: ${user.id}`);
 
     // Calculate timestamp for 2 hours ago
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
 
-    // Update active sessions older than 2 hours
-    const { data: updatedSessions, error: updateError } = await supabaseClient
+    // Build query
+    let query = supabaseClient
       .from('roleplay_sessions')
       .update({ 
         status: 'completed',
         completed_at: new Date().toISOString(),
       })
-      .eq('user_id', user.id)
       .eq('status', 'active')
       .eq('method', 'voice')
-      .lt('started_at', twoHoursAgo)
-      .select();
+      .lt('started_at', twoHoursAgo);
+
+    // If specific user, filter by user_id
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data: updatedSessions, error: updateError } = await query.select();
 
     if (updateError) {
       console.error('Error updating sessions:', updateError);
