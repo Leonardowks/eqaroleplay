@@ -60,6 +60,20 @@ serve(async (req) => {
       throw new Error('Session not found or unauthorized');
     }
 
+    // Check if session is still active
+    if (session.status !== 'active') {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Sessão já foi finalizada',
+          code: 'SESSION_ENDED' 
+        }), 
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     // Fetch previous messages for context
     const { data: previousMessages } = await supabase
       .from('session_messages')

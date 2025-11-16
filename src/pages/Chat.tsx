@@ -34,12 +34,14 @@ const Chat = () => {
   const location = useLocation();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isSessionEndedRef = useRef(false);
 
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [personaId, setPersonaId] = useState<string | null>(null);
   const [personaName, setPersonaName] = useState<string>('');
@@ -166,7 +168,7 @@ const Chat = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim() || !sessionId || !personaId || isLoading) return;
+    if (!inputMessage.trim() || !sessionId || !personaId || isLoading || isSessionEndedRef.current) return;
 
     const userMessage = inputMessage.trim();
     setInputMessage('');
@@ -199,6 +201,18 @@ const Chat = () => {
         throw error;
       }
 
+      // Check if session was ended
+      if (data?.code === 'SESSION_ENDED') {
+        toast({
+          title: 'Sessão Encerrada',
+          description: 'Esta sessão já foi finalizada.',
+          variant: 'destructive',
+        });
+        isSessionEndedRef.current = true;
+        setIsLoading(false);
+        return;
+      }
+
       if (data?.error) {
         throw new Error(data.error);
       }
@@ -226,7 +240,10 @@ const Chat = () => {
   };
 
   const handleEndSession = async () => {
-    if (!sessionId) return;
+    if (!sessionId || isSessionEndedRef.current) return;
+    
+    isSessionEndedRef.current = true;
+    setIsEnding(true);
 
     const sessionDuration = Math.floor((new Date().getTime() - sessionStartTime.getTime()) / 1000);
 
@@ -349,10 +366,10 @@ const Chat = () => {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               placeholder="Digite sua mensagem..."
-              disabled={isLoading}
+              disabled={isLoading || isSessionEndedRef.current || isEnding}
               className="flex-1"
             />
-            <Button type="submit" disabled={isLoading || !inputMessage.trim()}>
+            <Button type="submit" disabled={isLoading || !inputMessage.trim() || isSessionEndedRef.current || isEnding}>
               {isLoading ? (
                 <Loader2 className="animate-spin" size={18} />
               ) : (

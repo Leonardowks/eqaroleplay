@@ -145,7 +145,16 @@ LEMBRE-SE: Você está em uma CONVERSA POR VOZ. Fale naturalmente como falaria a
     isCleaningUp = true;
     console.log(`[${sessionId}] Cleaning up resources`);
     
+    // Send cancel command to OpenAI to stop any ongoing response
     if (openAISocket?.readyState === WebSocket.OPEN) {
+      try {
+        console.log("Sending response.cancel to OpenAI");
+        openAISocket.send(JSON.stringify({
+          type: 'response.cancel'
+        }));
+      } catch (error) {
+        console.error("Error sending cancel command:", error);
+      }
       openAISocket.close();
     }
   };
@@ -195,19 +204,41 @@ LEMBRE-SE: Você está em uma CONVERSA POR VOZ. Fale naturalmente como falaria a
 
         // Save transcriptions
         if (data.type === "conversation.item.input_audio_transcription.completed") {
-          await supabase.from("session_messages").insert({
-            session_id: sessionId,
-            role: "user",
-            content: data.transcript,
-          });
+          // Check if session is still active before saving
+          const { data: sessionCheck } = await supabase
+            .from('roleplay_sessions')
+            .select('status')
+            .eq('id', sessionId)
+            .single();
+          
+          if (sessionCheck?.status === 'active') {
+            await supabase.from("session_messages").insert({
+              session_id: sessionId,
+              role: "user",
+              content: data.transcript,
+            });
+          } else {
+            console.log(`Session ${sessionId} is no longer active, skipping user message save`);
+          }
         }
 
         if (data.type === "response.audio_transcript.done") {
-          await supabase.from("session_messages").insert({
-            session_id: sessionId,
-            role: "assistant",
-            content: data.transcript,
-          });
+          // Check if session is still active before saving
+          const { data: sessionCheck } = await supabase
+            .from('roleplay_sessions')
+            .select('status')
+            .eq('id', sessionId)
+            .single();
+          
+          if (sessionCheck?.status === 'active') {
+            await supabase.from("session_messages").insert({
+              session_id: sessionId,
+              role: "assistant",
+              content: data.transcript,
+            });
+          } else {
+            console.log(`Session ${sessionId} is no longer active, skipping assistant message save`);
+          }
         }
       } catch (error) {
         console.error("Error processing OpenAI message:", error);
@@ -227,8 +258,23 @@ LEMBRE-SE: Você está em uma CONVERSA POR VOZ. Fale naturalmente como falaria a
   };
 
   clientSocket.onmessage = (event) => {
-    if (openAISocket && openAISocket.readyState === WebSocket.OPEN) {
-      openAISocket.send(event.data);
+    try {
+      const data = JSON.parse(event.data);
+      console.log(`[${sessionId}] Received from client:`, data.type);
+      
+      // Handle session end request from client
+      if (data.type === 'session.end') {
+        console.log('Client requested session end');
+        cleanup();
+        return;
+      }
+      
+      // Forward to OpenAI if connected
+      if (openAISocket && openAISocket.readyState === WebSocket.OPEN) {
+        openAISocket.send(event.data);
+      }
+    } catch (error) {
+      console.error(`[${sessionId}] Error processing client message:`, error);
     }
   };
 
