@@ -1,0 +1,12 @@
+-- Inserir as personas no banco de dados
+INSERT INTO public.personas (id, name, role, company, sector, difficulty, description, personality_traits) VALUES
+  (gen_random_uuid(), 'Ricardo Startup', 'Fundador', 'Tech Startup', 'Tecnologia', 'easy', 'Jovem empreendedor, entusiasta de IA, orçamento limitado mas mente aberta', '{"enthusiasm": "high", "openness": "high", "budget_concern": "medium"}'::jsonb),
+  (gen_random_uuid(), 'Marina E-commerce', 'Gerente de Operações', 'Loja Online', 'Varejo Digital', 'easy', 'Sobrecarregada com tarefas manuais, busca eficiência imediata', '{"urgency": "high", "technical_knowledge": "medium", "decision_speed": "fast"}'::jsonb),
+  (gen_random_uuid(), 'André Pequeno Negócio', 'Proprietário', 'Consultoria', 'Serviços', 'easy', 'Precisa automatizar processos administrativos básicos', '{"practicality": "high", "tech_adoption": "medium", "cost_sensitive": "high"}'::jsonb),
+  (gen_random_uuid(), 'Fernanda RH', 'Diretora de Gente', 'Empresa Médio Porte', 'Recursos Humanos', 'medium', 'Quer automatizar recrutamento e onboarding, preocupada com custos', '{"analytical": "high", "risk_averse": "medium", "process_oriented": "high"}'::jsonb),
+  (gen_random_uuid(), 'Carlos Industrial', 'Gerente de Produção', 'Indústria', 'Manufatura', 'medium', 'Tradicional, cético com IA, foca em resultados tangíveis', '{"skepticism": "high", "results_focused": "high", "traditional": "high"}'::jsonb),
+  (gen_random_uuid(), 'Juliana Marketing', 'CMO', 'Agência Digital', 'Marketing', 'medium', 'Conhece automação mas questiona diferencial da sua solução', '{"knowledge": "high", "competitive": "high", "demanding": "high"}'::jsonb),
+  (gen_random_uuid(), 'Dr. Roberto Advogado', 'Sócio', 'Escritório Jurídico', 'Advocacia', 'hard', 'Extremamente preocupado com segurança e compliance, LGPD', '{"security_focused": "very_high", "compliance_strict": "very_high", "detail_oriented": "very_high"}'::jsonb),
+  (gen_random_uuid(), 'Patricia CFO', 'Diretora Financeira', 'Holding', 'Financeiro', 'hard', 'Foca intensamente em ROI, payback e métricas financeiras', '{"analytical": "very_high", "roi_focused": "very_high", "data_driven": "very_high"}'::jsonb),
+  (gen_random_uuid(), 'Gustavo TI', 'CTO', 'Empresa Enterprise', 'Tecnologia', 'hard', 'Técnico, questiona arquitetura, integrações e escalabilidade', '{"technical": "very_high", "critical_thinking": "very_high", "architecture_focused": "very_high"}'::jsonb)
+ON CONFLICT (id) DO NOTHING;
