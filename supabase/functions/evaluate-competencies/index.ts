@@ -343,15 +343,15 @@ ${conversation}`;
       throw new Error('Invalid evaluation format from AI');
     }
 
-    // Salvar competências no banco (garantir que scores são inteiros)
+    // Salvar competências no banco (converter scores de 0-100 para 0-10)
     const competencyInserts = evaluations.map((comp: any) => ({
       session_id: sessionId,
       competency_name: comp.competency,
-      score: Math.round(comp.score),
+      score: Math.round(comp.score / 10), // Convert 0-100 to 0-10
       feedback: comp.feedback,
       spin_category: comp.spin_category || null,
       sub_scores: comp.sub_scores ? Object.fromEntries(
-        Object.entries(comp.sub_scores).map(([k, v]) => [k, Math.round(Number(v))])
+        Object.entries(comp.sub_scores).map(([k, v]) => [k, Math.round(Number(v) / 10)]) // Convert 0-100 to 0-10
       ) : null,
       sub_scores_feedback: comp.sub_scores_feedback || null,
       ai_suggestions: comp.ai_suggestions || null,
@@ -366,7 +366,7 @@ ${conversation}`;
       throw insertError;
     }
 
-    // Calcular overall score (média das 7 competências)
+    // Calcular overall score (média das 7 competências em escala 0-100)
     const overallScore = Math.round(
       evaluations.reduce((sum: number, comp: any) => sum + comp.score, 0) / evaluations.length
     );
