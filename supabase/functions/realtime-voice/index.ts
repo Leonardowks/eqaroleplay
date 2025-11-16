@@ -134,10 +134,7 @@ Mantenha o papel consistente durante toda a conversa.`;
         "Authorization": `Bearer ${openAIKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "gpt-4o-realtime-preview-2024-12-17",
-        voice: selectedVoice,
-      }),
+      body: JSON.stringify({}),
     });
 
     if (!tokenResponse.ok) {
