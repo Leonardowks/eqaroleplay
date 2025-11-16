@@ -484,66 +484,126 @@ const VoiceChat = () => {
         }
 
         if (data.type === "error") {
-          console.error("WebSocket error:", data.error);
+          console.error("[WebSocket] Error event received:", {
+            error: data.error,
+            type: typeof data.error,
+            sessionId,
+            timestamp: new Date().toISOString()
+          });
           
-          // Safely extract error message, ensuring it's always a string
-          let errorMessage = "Erro na conexão";
+          // Safely extract error message
+          let errorMessage = "Erro na conexão de voz";
+          let errorDetails = "";
+          
           if (typeof data.error === 'string') {
             errorMessage = data.error;
           } else if (data.error && typeof data.error === 'object') {
-            errorMessage = data.error.message || JSON.stringify(data.error);
+            errorMessage = data.error.message || "Erro desconhecido";
+            errorDetails = data.error.details || "";
+            
+            // Check if it's a recoverable error
+            if (data.error.recoverable) {
+              console.log("[WebSocket] Error is recoverable, connection maintained");
+              errorMessage = "Problema temporário detectado - conexão mantida";
+            }
           }
           
           toast({
-            title: "Erro",
-            description: errorMessage,
-            variant: "destructive",
+            title: "Aviso",
+            description: errorMessage + (errorDetails ? ` (${errorDetails})` : ""),
+            variant: data.error?.recoverable ? "default" : "destructive",
           });
         }
       };
 
       wsRef.current.onerror = (error) => {
-        console.error("WebSocket error:", error);
+        console.error("[WebSocket] Error event:", {
+          error,
+          type: error.type,
+          readyState: wsRef.current?.readyState,
+          url: wsRef.current?.url,
+          sessionId,
+          timestamp: new Date().toISOString()
+        });
+        
         setIsConnected(false);
+        
+        // Provide more detailed error message based on ready state
+        let errorDescription = "Não foi possível conectar ao servidor de voz";
+        if (wsRef.current?.readyState === WebSocket.CLOSING) {
+          errorDescription = "Conexão sendo encerrada";
+        } else if (wsRef.current?.readyState === WebSocket.CLOSED) {
+          errorDescription = "Conexão foi fechada inesperadamente";
+        }
+        
         toast({
           title: "Erro de Conexão",
-          description: "Não foi possível conectar ao servidor de voz",
+          description: errorDescription,
           variant: "destructive",
+          duration: 4000,
         });
       };
 
-      wsRef.current.onclose = () => {
-        console.log("WebSocket closed");
+      wsRef.current.onclose = (event) => {
+        console.log("[WebSocket] Connection closed:", {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+          sessionId,
+          connectionAttempts,
+          timestamp: new Date().toISOString()
+        });
+        
         setIsConnected(false);
         stopRecording();
 
         // Only attempt reconnection if not already reconnecting and haven't exceeded attempts
-        if (connectionAttempts < 3 && !isReconnectingRef.current) {
+        if (connectionAttempts < 3 && !isReconnectingRef.current && !event.wasClean) {
           isReconnectingRef.current = true;
-          console.log(`Attempting reconnection (${connectionAttempts + 1}/3)...`);
+          console.log(`[WebSocket] Attempting reconnection (${connectionAttempts + 1}/3)...`);
+          
+          toast({
+            title: "Reconectando...",
+            description: `Tentativa ${connectionAttempts + 1} de 3`,
+          });
           
           setTimeout(() => {
             setConnectionAttempts(prev => prev + 1);
             connectWebSocket(sessionId, personaId, meetingType)
               .catch((err) => {
-                console.error("Reconnection failed:", err);
+                console.error("[WebSocket] Reconnection failed:", {
+                  error: err,
+                  attempt: connectionAttempts + 1
+                });
                 isReconnectingRef.current = false;
               });
           }, 2000);
         } else if (connectionAttempts >= 3) {
+          console.error("[WebSocket] Max reconnection attempts reached");
           toast({
             title: "Conexão Perdida",
-            description: "Não foi possível reconectar. Por favor, tente novamente.",
+            description: "Não foi possível reconectar após 3 tentativas. Tente reiniciar a sessão.",
             variant: "destructive",
+            duration: 6000,
           });
+        } else if (event.wasClean) {
+          console.log("[WebSocket] Connection closed cleanly (expected)");
         }
       };
     } catch (error) {
-      console.error("Error connecting WebSocket:", error);
+      console.error("[WebSocket] Error connecting:", {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        sessionId,
+        timestamp: new Date().toISOString()
+      });
+      
       toast({
-        title: "Erro",
-        description: "Não foi possível estabelecer conexão",
+        title: "Erro de Conexão",
+        description: "Não foi possível estabelecer conexão com o servidor de voz. Verifique sua conexão com a internet.",
         variant: "destructive",
+        duration: 5000,
       });
     }
   };
