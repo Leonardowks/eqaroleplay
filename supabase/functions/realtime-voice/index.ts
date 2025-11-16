@@ -238,47 +238,19 @@ Mantenha o papel consistente durante toda a conversa.`;
 
       // Log critical events with details
       if (data.type === "session.created") {
-        console.log(`[${sessionId}] 🎯 Session created, sending full configuration...`);
-        console.log(`[${sessionId}] 📋 Session config from ephemeral token:`, JSON.stringify({
+        console.log(`[${sessionId}] 🎯 Session created with ephemeral token configuration`);
+        console.log(`[${sessionId}] 📋 Active session config:`, JSON.stringify({
           model: data.session?.model,
           voice: data.session?.voice,
           modalities: data.session?.modalities,
+          turn_detection: data.session?.turn_detection,
+          input_audio_format: data.session?.input_audio_format,
+          output_audio_format: data.session?.output_audio_format,
         }, null, 2));
         
-        // Send session.update with all detailed configurations (with error handling)
-        try {
-          openAISocket.send(
-            JSON.stringify({
-              type: "session.update",
-              session: {
-                modalities: ["text", "audio"],
-                instructions: systemPrompt,
-                input_audio_format: "pcm16",
-                output_audio_format: "pcm16",
-                input_audio_transcription: {
-                  model: "whisper-1",
-                },
-                turn_detection: {
-                  type: "server_vad",
-                  threshold: 0.5,
-                  prefix_padding_ms: 600,
-                  silence_duration_ms: 1500,
-                },
-                temperature: 0.9,
-                max_response_output_tokens: 150,
-              },
-            })
-          );
-          
-          sessionConfigured = true;
-          console.log(`[${sessionId}] ✅ Session update sent with full configuration`);
-        } catch (error) {
-          console.error(`[${sessionId}] ⚠️ Failed to send session.update, continuing with ephemeral token config:`, error);
-          // Sistema pode continuar funcionando com configurações do ephemeral token
-          sessionConfigured = true; // Marcar como configurado mesmo com falha
-        }
-      } else if (data.type === "session.updated") {
-        console.log(`[${sessionId}] ✅ Session update confirmed - system fully operational`);
+        // Marcar como configurado - todas as configurações já foram enviadas no ephemeral token
+        sessionConfigured = true;
+        console.log(`[${sessionId}] ✅ System ready - no session.update needed (using ephemeral token config)`);
       } else if (data.type === "error") {
         console.error(`[${sessionId}] ❌ OpenAI error received:`, JSON.stringify(data.error, null, 2));
         
