@@ -11,13 +11,10 @@ import { cn } from '@/lib/utils';
 
 interface HeatmapData {
   meetingType: string;
-  abertura?: number;
-  descoberta?: number;
-  problemas?: number;
-  implicacao?: number;
-  valor?: number;
-  objecoes?: number;
-  fechamento?: number;
+  situation?: number;
+  problem?: number;
+  implication?: number;
+  need_payoff?: number;
 }
 
 interface CompetencyHeatmapProps {
@@ -33,23 +30,17 @@ const CompetencyHeatmap = ({ data }: CompetencyHeatmapProps) => {
   };
 
   const competencyKeys = [
-    'abertura',
-    'descoberta',
-    'problemas',
-    'implicacao',
-    'valor',
-    'objecoes',
-    'fechamento',
+    'situation',
+    'problem',
+    'implication',
+    'need_payoff',
   ];
 
   const competencyLabels: Record<string, string> = {
-    abertura: 'Abertura',
-    descoberta: 'Situação',
-    problemas: 'Problemas',
-    implicacao: 'Implicação',
-    valor: 'Valor',
-    objecoes: 'Objeções',
-    fechamento: 'Fechamento',
+    situation: 'Situação',
+    problem: 'Problema',
+    implication: 'Implicação',
+    need_payoff: 'Valor',
   };
 
   const getScoreColor = (score?: number) => {
