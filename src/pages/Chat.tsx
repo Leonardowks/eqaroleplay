@@ -2,11 +2,23 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
+import Breadcrumbs from '@/components/Breadcrumbs';
+import SessionSummaryModal from '@/components/SessionSummaryModal';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Loader2, X } from 'lucide-react';
+import { Send, Loader2, X, ArrowLeft, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -34,6 +46,9 @@ const Chat = () => {
   const [meetingType, setMeetingType] = useState<string>('');
   const [sessionStartTime, setSessionStartTime] = useState<Date>(new Date());
   const [isTyping, setIsTyping] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [showSummary, setShowSummary] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -43,6 +58,13 @@ const Chat = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isTyping]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDuration(Math.floor((Date.now() - sessionStartTime.getTime()) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [sessionStartTime]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -206,15 +228,14 @@ const Chat = () => {
   const handleEndSession = async () => {
     if (!sessionId) return;
 
-    const duration = Math.floor((new Date().getTime() - sessionStartTime.getTime()) / 1000);
+    const sessionDuration = Math.floor((new Date().getTime() - sessionStartTime.getTime()) / 1000);
 
     const { error } = await supabase
       .from('roleplay_sessions')
       .update({
         status: 'completed',
         completed_at: new Date().toISOString(),
-        duration_seconds: duration,
-        overall_score: 7.5, // Mock score for now
+        duration_seconds: sessionDuration,
       })
       .eq('id', sessionId);
 
@@ -222,12 +243,22 @@ const Chat = () => {
       console.error('Error ending session:', error);
     }
 
-    toast({
-      title: 'Sessão finalizada!',
-      description: `Duração: ${Math.floor(duration / 60)}min ${duration % 60}s`,
-    });
+    // Trigger AI evaluation
+    try {
+      await supabase.functions.invoke('evaluate-competencies', {
+        body: { sessionId },
+      });
+    } catch (err) {
+      console.error('Error evaluating:', err);
+    }
 
-    navigate('/dashboard');
+    setShowSummary(true);
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const getMeetingTypeLabel = (type: string) => {
@@ -245,8 +276,25 @@ const Chat = () => {
       <Header userName={profile?.full_name} userAvatar={profile?.avatar_url} />
       
       <main className="flex-1 container mx-auto px-6 py-8 flex flex-col">
+        <div className="flex items-center gap-4 mb-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowExitConfirm(true)}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Voltar
+          </Button>
+        </div>
+
+        <Breadcrumbs />
+
         {/* Session Info */}
         <Card className="p-4 mb-6 bg-card border-border flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Clock className="h-5 w-5 text-primary" />
+            <span className="font-mono text-lg font-semibold">{formatDuration(duration)}</span>
+          </div>
           <div>
             <h2 className="text-lg font-bold">{personaName}</h2>
             <p className="text-sm text-muted-foreground">{getMeetingTypeLabel(meetingType)}</p>
@@ -321,6 +369,35 @@ const Chat = () => {
           </p>
         </Card>
       </main>
+
+      <SessionSummaryModal
+        isOpen={showSummary}
+        onClose={() => {
+          setShowSummary(false);
+          navigate('/dashboard');
+        }}
+        duration={duration}
+        sessionId={sessionId || ''}
+      />
+
+      <AlertDialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sair da Sessão?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A sessão atual será finalizada. Tem certeza que deseja sair?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => {
+              await handleEndSession();
+            }}>
+              Sim, Finalizar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
