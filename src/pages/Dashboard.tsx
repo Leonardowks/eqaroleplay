@@ -1,0 +1,250 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import Header from '@/components/Header';
+import { Card } from '@/components/ui/card';
+import { Trophy, Clock, Target, TrendingUp, Play } from 'lucide-react';
+import {
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  ResponsiveContainer,
+} from 'recharts';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+const Dashboard = () => {
+  const navigate = useNavigate();
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [stats, setStats] = useState({
+    totalSessions: 0,
+    avgDuration: 0,
+    avgScore: 0,
+    evolution: 0,
+  });
+  const [recentSessions, setRecentSessions] = useState<any[]>([]);
+  const [competencyData, setCompetencyData] = useState<any[]>([]);
+
+  useEffect(() => {
+    checkUser();
+    loadDashboardData();
+  }, []);
+
+  const checkUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+    setUser(user);
+
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    
+    setProfile(profileData);
+  };
+
+  const loadDashboardData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Load sessions stats
+    const { data: sessions } = await supabase
+      .from('roleplay_sessions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'completed');
+
+    if (sessions) {
+      const totalSessions = sessions.length;
+      const avgDuration = sessions.reduce((acc, s) => acc + (s.duration_seconds || 0), 0) / totalSessions || 0;
+      const avgScore = sessions.reduce((acc, s) => acc + (s.overall_score || 0), 0) / totalSessions || 0;
+      
+      setStats({
+        totalSessions,
+        avgDuration: Math.round(avgDuration),
+        avgScore: parseFloat(avgScore.toFixed(1)),
+        evolution: 12.5, // Mocked for now
+      });
+
+      // Get recent sessions
+      const recent = sessions
+        .sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime())
+        .slice(0, 5);
+      setRecentSessions(recent);
+    }
+
+    // Load competency scores
+    const competencies = [
+      'Descoberta de Processos',
+      'Identificação de Dor',
+      'Apresentação de Valor',
+      'Técnicas de IA',
+      'Gestão de Objeções',
+      'Proposta Comercial',
+      'Fechamento',
+    ];
+
+    // Mock data for now
+    const mockData = competencies.map(name => ({
+      competency: name,
+      score: Math.random() * 10,
+      fullMark: 10,
+    }));
+    
+    setCompetencyData(mockData);
+  };
+
+  const getMeetingTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      prospection: 'Prospecção',
+      discovery: 'Descoberta',
+      presentation: 'Apresentação',
+      negotiation: 'Negociação',
+    };
+    return labels[type] || type;
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header userName={profile?.full_name} userAvatar={profile?.avatar_url} />
+      
+      <main className="container mx-auto px-6 py-8">
+        {/* Welcome section */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">
+            Olá, {profile?.full_name || 'Vendedor'}! 👋
+          </h1>
+          <p className="text-muted-foreground">
+            Confira seu desempenho e continue treinando.
+          </p>
+        </div>
+
+        {/* Metrics cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card className="p-6 bg-card border-border hover:shadow-glow transition-shadow">
+            <div className="flex items-start justify-between mb-4">
+              <div className="p-3 bg-primary/10 rounded-lg">
+                <Play className="text-primary" size={24} />
+              </div>
+            </div>
+            <h3 className="text-2xl font-bold mb-1">{stats.totalSessions}</h3>
+            <p className="text-sm text-muted-foreground">Sessões Realizadas</p>
+          </Card>
+
+          <Card className="p-6 bg-card border-border hover:shadow-glow transition-shadow">
+            <div className="flex items-start justify-between mb-4">
+              <div className="p-3 bg-secondary/10 rounded-lg">
+                <Clock className="text-secondary" size={24} />
+              </div>
+            </div>
+            <h3 className="text-2xl font-bold mb-1">{Math.floor(stats.avgDuration / 60)}min</h3>
+            <p className="text-sm text-muted-foreground">Duração Média</p>
+          </Card>
+
+          <Card className="p-6 bg-card border-border hover:shadow-glow transition-shadow">
+            <div className="flex items-start justify-between mb-4">
+              <div className="p-3 bg-accent/10 rounded-lg">
+                <Trophy className="text-accent" size={24} />
+              </div>
+            </div>
+            <h3 className="text-2xl font-bold mb-1">{stats.avgScore.toFixed(1)}</h3>
+            <p className="text-sm text-muted-foreground">Pontuação Geral</p>
+          </Card>
+
+          <Card className="p-6 bg-card border-border hover:shadow-glow transition-shadow">
+            <div className="flex items-start justify-between mb-4">
+              <div className="p-3 bg-primary/10 rounded-lg">
+                <TrendingUp className="text-primary" size={24} />
+              </div>
+            </div>
+            <h3 className="text-2xl font-bold mb-1 text-primary">+{stats.evolution}%</h3>
+            <p className="text-sm text-muted-foreground">Taxa de Evolução</p>
+          </Card>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-8 mb-8">
+          {/* Radar Chart */}
+          <Card className="p-6 bg-card border-border">
+            <h3 className="text-xl font-bold mb-6">Competências</h3>
+            <ResponsiveContainer width="100%" height={400}>
+              <RadarChart data={competencyData}>
+                <PolarGrid stroke="hsl(var(--border))" />
+                <PolarAngleAxis
+                  dataKey="competency"
+                  tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
+                />
+                <PolarRadiusAxis angle={90} domain={[0, 10]} />
+                <Radar
+                  name="Score"
+                  dataKey="score"
+                  stroke="hsl(var(--primary))"
+                  fill="hsl(var(--primary))"
+                  fillOpacity={0.6}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+          </Card>
+
+          {/* Recent sessions */}
+          <Card className="p-6 bg-card border-border">
+            <h3 className="text-xl font-bold mb-6">Últimas Sessões</h3>
+            <div className="space-y-4">
+              {recentSessions.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  Nenhuma sessão completada ainda. Comece a treinar!
+                </p>
+              ) : (
+                recentSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className="flex items-center justify-between p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition"
+                  >
+                    <div className="flex-1">
+                      <p className="font-medium mb-1">
+                        {getMeetingTypeLabel(session.meeting_type)}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {format(new Date(session.completed_at), "dd 'de' MMM, HH:mm", { locale: ptBR })}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-primary">
+                        {session.overall_score?.toFixed(1) || 'N/A'}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {session.method === 'text' ? 'Texto' : 'Voz'}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
+        </div>
+
+        {/* CTA */}
+        <Card className="p-8 bg-gradient-primary text-white text-center">
+          <h2 className="text-2xl font-bold mb-3">Pronto para treinar?</h2>
+          <p className="mb-6 opacity-90">
+            Escolha uma persona e comece um novo roleplay agora mesmo.
+          </p>
+          <button
+            onClick={() => navigate('/roleplay')}
+            className="px-8 py-3 bg-white text-primary font-semibold rounded-lg hover:bg-opacity-90 transition"
+          >
+            Iniciar Roleplay
+          </button>
+        </Card>
+      </main>
+    </div>
+  );
+};
+
+export default Dashboard;
