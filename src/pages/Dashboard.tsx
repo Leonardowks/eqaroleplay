@@ -198,14 +198,15 @@ const Dashboard = () => {
     const { data } = await supabase
       .from('competency_scores')
       .select(`
-        competency_name,
+        spin_category,
         score,
         roleplay_sessions!inner (
           meeting_type,
           user_id
         )
       `)
-      .eq('roleplay_sessions.user_id', user.id);
+      .eq('roleplay_sessions.user_id', user.id)
+      .not('spin_category', 'is', null);
 
     if (!data || data.length === 0) {
       setHeatmapData([]);
@@ -220,31 +221,23 @@ const Dashboard = () => {
       if (!grouped[type]) {
         grouped[type] = { 
           meetingType: type,
-          abertura: [],
-          descoberta: [],
-          problemas: [],
-          implicacao: [],
-          valor: [],
-          objecoes: [],
-          fechamento: []
+          situation: [],
+          problem: [],
+          implication: [],
+          need_payoff: []
         };
       }
       
-      // Mapear competências para keys do heatmap
-      const compName = item.competency_name.toLowerCase();
-      if (compName.includes('abertura')) grouped[type].abertura.push(item.score);
-      else if (compName.includes('situação') || compName.includes('descoberta')) grouped[type].descoberta.push(item.score);
-      else if (compName.includes('problema')) grouped[type].problemas.push(item.score);
-      else if (compName.includes('implicação')) grouped[type].implicacao.push(item.score);
-      else if (compName.includes('valor') || compName.includes('apresentação')) grouped[type].valor.push(item.score);
-      else if (compName.includes('objeç')) grouped[type].objecoes.push(item.score);
-      else if (compName.includes('fechamento')) grouped[type].fechamento.push(item.score);
+      const category = item.spin_category;
+      if (grouped[type][category]) {
+        grouped[type][category].push(item.score);
+      }
     });
 
     // Calcular médias
     const result = Object.values(grouped).map((item: any) => {
       const output: any = { meetingType: item.meetingType };
-      ['abertura', 'descoberta', 'problemas', 'implicacao', 'valor', 'objecoes', 'fechamento'].forEach((key) => {
+      ['situation', 'problem', 'implication', 'need_payoff'].forEach((key) => {
         if (item[key].length > 0) {
           output[key] = Math.round(item[key].reduce((a: number, b: number) => a + b, 0) / item[key].length);
         }

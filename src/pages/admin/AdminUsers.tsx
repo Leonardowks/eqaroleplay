@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, UserCog, User, Loader2 } from 'lucide-react';
+import { Shield, UserCog, User, Loader2, Trash2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -14,6 +14,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -32,6 +42,9 @@ const AdminUsers = () => {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<{ id: string; name: string } | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -128,6 +141,76 @@ const AdminUsers = () => {
     }
   };
 
+  const handleDeleteHistoryClick = (userId: string, userName: string) => {
+    setUserToDelete({ id: userId, name: userName });
+    setDeleteDialogOpen(true);
+  };
+
+  const deleteUserHistory = async () => {
+    if (!userToDelete) return;
+    
+    setDeletingUserId(userToDelete.id);
+    try {
+      // Buscar todas as sessões do usuário
+      const { data: sessions } = await supabase
+        .from('roleplay_sessions')
+        .select('id')
+        .eq('user_id', userToDelete.id);
+
+      if (sessions && sessions.length > 0) {
+        const sessionIds = sessions.map(s => s.id);
+
+        // Deletar mensagens das sessões
+        await supabase
+          .from('session_messages')
+          .delete()
+          .in('session_id', sessionIds);
+
+        // Deletar competency scores
+        await supabase
+          .from('competency_scores')
+          .delete()
+          .in('session_id', sessionIds);
+      }
+
+      // Deletar insights do usuário
+      await supabase
+        .from('user_insights')
+        .delete()
+        .eq('user_id', userToDelete.id);
+
+      // Deletar conquistas do usuário
+      await supabase
+        .from('user_achievements')
+        .delete()
+        .eq('user_id', userToDelete.id);
+
+      // Deletar sessões
+      await supabase
+        .from('roleplay_sessions')
+        .delete()
+        .eq('user_id', userToDelete.id);
+
+      toast({
+        title: 'Histórico deletado',
+        description: `Todo o histórico de ${userToDelete.name} foi removido com sucesso.`,
+      });
+
+      setDeleteDialogOpen(false);
+      setUserToDelete(null);
+      await loadUsers();
+    } catch (error) {
+      console.error('Error deleting user history:', error);
+      toast({
+        title: 'Erro ao deletar histórico',
+        description: 'Não foi possível deletar o histórico do usuário.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -208,26 +291,72 @@ const AdminUsers = () => {
                     : 'Nunca'}
                 </TableCell>
                 <TableCell>
-                  <Button
-                    variant={user.roles.includes('admin') ? 'destructive' : 'default'}
-                    size="sm"
-                    onClick={() => toggleAdminRole(user.id, user.roles)}
-                    disabled={updatingUserId === user.id}
-                  >
-                    {updatingUserId === user.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : user.roles.includes('admin') ? (
-                      'Remover Admin'
-                    ) : (
-                      'Tornar Admin'
-                    )}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={user.roles.includes('admin') ? 'destructive' : 'default'}
+                      size="sm"
+                      onClick={() => toggleAdminRole(user.id, user.roles)}
+                      disabled={updatingUserId === user.id || deletingUserId === user.id}
+                    >
+                      {updatingUserId === user.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : user.roles.includes('admin') ? (
+                        'Remover Admin'
+                      ) : (
+                        'Tornar Admin'
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteHistoryClick(user.id, user.full_name)}
+                      disabled={updatingUserId === user.id || deletingUserId === user.id}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      {deletingUserId === user.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </Card>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deletar histórico do usuário?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é <strong>irreversível</strong> e irá deletar permanentemente:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Todas as sessões de roleplay</li>
+                <li>Todas as competências avaliadas</li>
+                <li>Todas as mensagens das sessões</li>
+                <li>Todos os insights gerados</li>
+                <li>Todas as conquistas desbloqueadas</li>
+              </ul>
+              <p className="mt-3 font-semibold">
+                O perfil e as permissões de <span className="text-foreground">{userToDelete?.name}</span> serão mantidos.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteUserHistory}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Deletar Histórico
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
