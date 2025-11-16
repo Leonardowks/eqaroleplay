@@ -285,11 +285,11 @@ export class AudioQueue {
         float32Data = audioData;
       }
 
-      // Criar buffer de áudio diretamente dos dados
+      // Criar buffer de áudio diretamente dos dados com sample rate correto
       const audioBuffer = this.audioContext.createBuffer(
         1, // mono
         float32Data.length,
-        this.SAMPLE_RATE
+        this.SAMPLE_RATE // CRÍTICO: usar sample rate configurado (24kHz)
       );
       
       // Copiar dados para o buffer
@@ -303,34 +303,33 @@ export class AudioQueue {
       // Rastrear source ativo
       this.activeSources.add(source);
 
-      // Calcular quando iniciar este chunk (streaming scheduling)
+      // Calcular quando iniciar este chunk
       const currentTime = this.audioContext.currentTime;
       
-      // Se não há nextStartTime ou está muito atrasado, começar agora com margem mínima
-      if (this.nextStartTime === 0 || this.nextStartTime < currentTime) {
-        this.nextStartTime = currentTime + 0.01; // 10ms de margem mínima
+      // Inicializar nextStartTime se for o primeiro chunk
+      if (this.nextStartTime === 0) {
+        this.nextStartTime = currentTime + 0.05; // 50ms buffer inicial
       }
       
-      // Calcular gap atual
-      const gap = this.nextStartTime - currentTime;
-      
-      // Catch-up logic: se gap for muito grande (>300ms), reduzir para evitar atraso acumulativo
-      const MAX_GAP = 0.3; // 300ms máximo
-      let scheduleTime = this.nextStartTime;
-      
-      if (gap > MAX_GAP) {
-        // Reduzir gap para valor aceitável
-        scheduleTime = currentTime + 0.05; // 50ms de margem
-        if (this.options.enableMetrics) {
-          console.warn(`[AudioQueue] Gap too large (${(gap * 1000).toFixed(0)}ms), catching up...`);
-        }
-        this.metrics.gaps++;
+      // Se nextStartTime ficou no passado (atrasado), sincronizar
+      if (this.nextStartTime < currentTime) {
+        this.nextStartTime = currentTime + 0.02; // 20ms de margem mínima
       }
 
-      // Reproduzir chunk
+      // IMPORTANTE: NÃO acelerar - deixar o áudio tocar no ritmo natural
+      // Apenas agendar sequencialmente sem gaps artificiais
+      const scheduleTime = this.nextStartTime;
+      
+      // Log de gap apenas para debug
+      const gap = scheduleTime - currentTime;
+      if (gap > 0.5 && this.options.enableMetrics) {
+        console.warn(`[AudioQueue] Large gap: ${(gap * 1000).toFixed(0)}ms (natural, not accelerating)`);
+      }
+
+      // Reproduzir chunk no tempo agendado
       source.start(scheduleTime);
       
-      // Atualizar próximo tempo de início
+      // Atualizar próximo tempo de início (sequencial, sem gaps)
       this.nextStartTime = scheduleTime + audioBuffer.duration;
 
       const processingTime = performance.now() - processingStartTime;
@@ -341,19 +340,20 @@ export class AudioQueue {
           (this.metrics.avgDecodeTime * this.metrics.chunksPlayed + processingTime) / 
           (this.metrics.chunksPlayed + 1);
         
-        console.log('[AudioQueue] Chunk playing', {
+        console.log('[AudioQueue] Chunk scheduled', {
+          samples: float32Data.length,
+          sampleRate: this.SAMPLE_RATE,
           duration: `${audioBuffer.duration.toFixed(3)}s`,
           scheduleTime: `${scheduleTime.toFixed(3)}s`,
           currentTime: `${currentTime.toFixed(3)}s`,
-          gap: `${(scheduleTime - currentTime).toFixed(3)}s`,
+          gap: `${gap.toFixed(3)}s`,
           nextStart: `${this.nextStartTime.toFixed(3)}s`,
-          processingTime: `${processingTime.toFixed(2)}ms`,
         });
       }
 
       // Log apenas do primeiro chunk se metrics disabled
       if (!this.isPlaying && !this.options.enableMetrics) {
-        console.log('🎵 Audio streaming started');
+        console.log('🎵 Audio streaming started at correct sample rate');
       }
       this.isPlaying = true;
 

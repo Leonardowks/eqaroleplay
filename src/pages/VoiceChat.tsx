@@ -402,15 +402,29 @@ const VoiceChat = () => {
 
       // Setup audio system baseado no feature flag
       if (USE_ENHANCED_AUDIO) {
-        console.log('🎵 Using enhanced audio system', { sampleRate: AUDIO_SAMPLE_RATE, latencyHint: AUDIO_LATENCY_HINT });
+        console.log('🎵 Using enhanced audio system', { 
+          sampleRate: AUDIO_SAMPLE_RATE, 
+          latencyHint: AUDIO_LATENCY_HINT 
+        });
         // Enhanced audio usa seu próprio AudioContext interno
       } else {
         // Only create new if doesn't exist (sistema legado)
         if (!audioContextRef.current) {
+          console.log('🎵 Creating AudioContext with config:', {
+            sampleRate: AUDIO_SAMPLE_RATE,
+            latencyHint: AUDIO_LATENCY_HINT,
+          });
           audioContextRef.current = new AudioContext({ 
             sampleRate: AUDIO_SAMPLE_RATE,
             latencyHint: AUDIO_LATENCY_HINT,
           });
+          
+          // Verificar sample rate real do contexto
+          const actualSampleRate = audioContextRef.current.sampleRate;
+          if (actualSampleRate !== AUDIO_SAMPLE_RATE) {
+            console.warn(`⚠️ AudioContext criado com ${actualSampleRate}Hz mas esperava ${AUDIO_SAMPLE_RATE}Hz!`);
+            console.warn('⚠️ Isso causará áudio acelerado ou lento. Ajustando...');
+          }
         }
         
         audioQueueRef.current = new AudioQueue(audioContextRef.current, {
