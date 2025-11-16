@@ -211,148 +211,152 @@ export const createWavFromPCM = (pcmData: Uint8Array): Uint8Array => {
 };
 
 export class AudioQueue {
-  private queue: Uint8Array[] = [];
-  private isPlaying = false;
   private audioContext: AudioContext;
-  private currentSource: AudioBufferSourceNode | null = null;
+  private nextStartTime: number = 0;
+  private readonly SAMPLE_RATE = 24000;
+  private isPlaying: boolean = false;
+  private activeSources: Set<AudioBufferSourceNode> = new Set();
 
   constructor(audioContext: AudioContext) {
     this.audioContext = audioContext;
+    console.log('🎵 AudioQueue initialized with streaming scheduling');
   }
 
-  async addToQueue(audioData: Uint8Array) {
-    // ✅ Limitar tamanho máximo da fila
-    const MAX_QUEUE_SIZE = 5;
-    
-    if (this.queue.length >= MAX_QUEUE_SIZE) {
-      console.warn('🗑️ Audio queue full, discarding oldest chunk');
-      this.queue.shift(); // Remove o chunk mais antigo
-    }
-    
-    this.queue.push(audioData);
-    
-    if (!this.isPlaying) {
-      await this.playNext();
-    }
-  }
-
-  private async playNext() {
-    if (this.queue.length === 0) {
-      this.isPlaying = false;
-      this.currentSource = null;
+  /**
+   * Adiciona chunk de áudio para reprodução imediata em streaming
+   * Aceita Uint8Array (PCM16) ou Float32Array
+   */
+  async addToQueue(audioData: Uint8Array | Float32Array): Promise<void> {
+    if (!this.audioContext || this.audioContext.state === 'closed') {
+      console.error('❌ AudioContext is closed');
       return;
     }
 
-    this.isPlaying = true;
-    const audioData = this.queue.shift()!;
+    // Retomar contexto se suspenso (Safari/iOS)
+    if (this.audioContext.state === 'suspended') {
+      console.warn('⚠️ AudioContext suspended, resuming...');
+      await this.audioContext.resume();
+    }
 
     try {
-      // ✅ Check and resume AudioContext if suspended
-      if (this.audioContext.state === 'suspended') {
-        console.warn('⚠️ AudioContext suspended, resuming...');
-        await this.audioContext.resume();
-        console.log('✅ AudioContext resumed successfully');
+      // Converter PCM16 (Uint8Array) para Float32Array se necessário
+      let float32Data: Float32Array;
+      if (audioData instanceof Uint8Array) {
+        float32Data = pcm16ToFloat32(audioData);
+      } else {
+        float32Data = audioData;
       }
 
-      // Verify state after resuming
-      if (this.audioContext.state !== 'running') {
-        throw new Error(`AudioContext in invalid state: ${this.audioContext.state}`);
-      }
+      // Criar buffer de áudio diretamente dos dados
+      const audioBuffer = this.audioContext.createBuffer(
+        1, // mono
+        float32Data.length,
+        this.SAMPLE_RATE
+      );
+      
+      // Copiar dados para o buffer
+      audioBuffer.getChannelData(0).set(float32Data);
 
-      const wavData = createWavFromPCM(audioData);
-      const arrayBuffer = new ArrayBuffer(wavData.buffer.byteLength);
-      new Uint8Array(arrayBuffer).set(new Uint8Array(wavData.buffer));
-      const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-
+      // Criar source node
       const source = this.audioContext.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(this.audioContext.destination);
 
-      this.currentSource = source;
+      // Rastrear source ativo
+      this.activeSources.add(source);
 
-      // ✅ Adicionar cleanup explícito após reprodução
-      source.onended = () => {
-        // Desconectar source para liberar memória
-        source.disconnect();
-        this.currentSource = null;
-        
-        // Delay reduzido para 20ms entre chunks (mais fluido)
-        setTimeout(() => this.playNext(), 20);
-      };
+      // Calcular quando iniciar este chunk (streaming scheduling)
+      const currentTime = this.audioContext.currentTime;
+      const startTime = Math.max(currentTime, this.nextStartTime);
+
+      // Reproduzir chunk
+      source.start(startTime);
       
-      source.start(0);
-    } catch (error) {
-      console.error("❌ Error playing audio:", error);
-      
-      // ✅ Attempt to recover AudioContext
-      if (this.audioContext.state === 'suspended') {
-        console.log('🔄 Attempting to recover suspended AudioContext...');
-        try {
-          await this.audioContext.resume();
-          // Re-add chunk to queue to retry
-          this.queue.unshift(audioData);
-        } catch (resumeError) {
-          console.error('❌ Failed to resume AudioContext:', resumeError);
-        }
+      // Atualizar próximo tempo de início (sem gaps)
+      this.nextStartTime = startTime + audioBuffer.duration;
+
+      // Log apenas do primeiro chunk
+      if (!this.isPlaying) {
+        console.log('🎵 Audio streaming started');
+        this.isPlaying = true;
       }
-      
-      this.currentSource = null;
-      
-      // Delay também no caso de erro
-      setTimeout(() => this.playNext(), 20);
+
+      // Limpar source após reprodução
+      source.onended = () => {
+        source.disconnect();
+        this.activeSources.delete(source);
+      };
+
+    } catch (error) {
+      console.error('❌ Error playing audio chunk:', error);
     }
   }
 
-  // Monitor AudioContext state continuously
-  public monitorAudioContext(onSuspended: () => void) {
+  /**
+   * Para toda reprodução e limpa recursos
+   */
+  async destroy(): Promise<void> {
+    console.log('🛑 Stopping audio queue...');
+    
+    // Parar todos os sources ativos
+    this.activeSources.forEach(source => {
+      try {
+        source.stop();
+        source.disconnect();
+      } catch (e) {
+        // Source pode já ter terminado
+      }
+    });
+    this.activeSources.clear();
+    
+    // Resetar estado
+    this.nextStartTime = 0;
+    this.isPlaying = false;
+    
+    // Fechar AudioContext
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      await this.audioContext.close();
+      console.log('✅ AudioContext closed');
+    }
+    
+    console.log('✅ Audio queue destroyed');
+  }
+
+  /**
+   * Retorna estado do AudioContext
+   */
+  getState(): AudioContextState {
+    return this.audioContext?.state || 'closed';
+  }
+
+  /**
+   * Legacy: manter compatibilidade com código existente
+   */
+  clear(): void {
+    console.warn('⚠️ clear() is deprecated, use destroy() instead');
+    this.activeSources.forEach(source => {
+      try {
+        source.stop();
+        source.disconnect();
+      } catch (e) {
+        // Ignorar
+      }
+    });
+    this.activeSources.clear();
+    this.nextStartTime = 0;
+    this.isPlaying = false;
+  }
+
+  /**
+   * Legacy: manter compatibilidade com monitoramento
+   */
+  monitorAudioContext(onSuspended: () => void): void {
     setInterval(() => {
       if (this.audioContext.state === 'suspended') {
         console.warn('⚠️ AudioContext suspended detected by monitor');
         onSuspended();
         this.audioContext.resume();
       }
-    }, 2000); // Check every 2 seconds
-  }
-
-  clear() {
-    this.queue = [];
-  }
-
-  // ✅ Cleanup completo ao destruir a fila
-  public destroy() {
-    console.log('🧹 Cleaning up AudioQueue resources');
-    
-    // 1. Parar e desconectar source ativo
-    if (this.currentSource) {
-      try {
-        this.currentSource.stop();
-        this.currentSource.disconnect();
-        console.log('✅ Active BufferSource stopped');
-      } catch (error) {
-        console.warn('⚠️ Error stopping source (may be already stopped):', error);
-      }
-      this.currentSource = null;
-    }
-    
-    // 2. Limpar fila
-    this.queue = [];
-    console.log('✅ Audio queue cleared');
-    
-    // 3. Parar reprodução
-    this.isPlaying = false;
-    
-    // 4. Fechar AudioContext
-    if (this.audioContext && this.audioContext.state !== 'closed') {
-      this.audioContext.close()
-        .then(() => {
-          console.log('✅ AudioContext closed successfully');
-        })
-        .catch(err => {
-          console.warn('⚠️ Error closing AudioContext:', err);
-        });
-      this.audioContext = null as any;
-    }
-    
-    console.log('✅ AudioQueue destroyed completely');
+    }, 2000);
   }
 }
