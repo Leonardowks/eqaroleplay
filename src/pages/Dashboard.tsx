@@ -3,18 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
 import { Card } from '@/components/ui/card';
-import { Trophy, Clock, Target, TrendingUp, Play } from 'lucide-react';
+import { Trophy, Clock, Target, TrendingUp, Play, Trash2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 // Lazy load chart component to reduce initial bundle
 const CompetencyChart = lazy(() => import('@/components/CompetencyChart'));
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
   const [stats, setStats] = useState({
     totalSessions: 0,
     avgDuration: 0,
@@ -97,6 +101,49 @@ const Dashboard = () => {
     setCompetencyData(mockData);
   };
 
+  // Cleanup orphaned sessions
+  const cleanupSessions = async () => {
+    if (!user) return;
+    
+    setIsCleaningUp(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const { data, error } = await supabase.functions.invoke('cleanup-sessions', {
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+
+      if (error) {
+        console.error('Error cleaning sessions:', error);
+        toast({
+          title: "Erro ao limpar sessões",
+          description: "Não foi possível limpar as sessões órfãs.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Sessões limpas",
+        description: data.message || "Sessões órfãs finalizadas com sucesso.",
+      });
+
+      // Reload dashboard data
+      loadDashboardData();
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      toast({
+        title: "Erro inesperado",
+        description: "Ocorreu um erro ao limpar as sessões.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCleaningUp(false);
+    }
+  };
+
   // Memoize meeting type labels for better performance
   const getMeetingTypeLabel = useMemo(() => {
     const labels: Record<string, string> = {
@@ -114,13 +161,25 @@ const Dashboard = () => {
       
       <main className="container mx-auto px-6 py-8">
         {/* Welcome section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">
-            Olá, {profile?.full_name || 'Vendedor'}! 👋
-          </h1>
-          <p className="text-muted-foreground">
-            Confira seu desempenho e continue treinando.
-          </p>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">
+              Olá, {profile?.full_name || 'Vendedor'}! 👋
+            </h1>
+            <p className="text-muted-foreground">
+              Confira seu desempenho e continue treinando.
+            </p>
+          </div>
+          <Button 
+            onClick={cleanupSessions}
+            variant="outline"
+            size="sm"
+            disabled={isCleaningUp}
+            className="gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            {isCleaningUp ? 'Limpando...' : 'Limpar Sessões Órfãs'}
+          </Button>
         </div>
 
         {/* Metrics cards */}
