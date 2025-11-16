@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Clock, Calendar, MessageSquare, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import DetailedFeedback from '@/components/DetailedFeedback';
 
 interface Message {
   id: string;
@@ -24,6 +25,9 @@ interface Competency {
   competency_name: string;
   score: number;
   feedback: string | null;
+  spin_category?: string | null;
+  sub_scores?: any;
+  ai_suggestions?: any;
 }
 
 const SessionDetail = () => {
@@ -210,24 +214,21 @@ const SessionDetail = () => {
           </Card>
 
           {competencies.length > 0 && (
-            <Card className="p-4 sm:p-6">
-              <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4">Competências Avaliadas</h2>
-              <div className="space-y-3 sm:space-y-4">
-                {competencies.map((comp) => (
-                  <div key={comp.id} className="border-l-4 border-primary pl-3 sm:pl-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm sm:text-base font-medium">{comp.competency_name}</h3>
-                      <span className="text-base sm:text-lg font-semibold text-primary">
-                        {comp.score.toFixed(1)}/100
-                      </span>
-                    </div>
-                    {comp.feedback && (
-                      <p className="text-xs sm:text-sm text-muted-foreground">{comp.feedback}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </Card>
+            <div className="space-y-6">
+              <h2 className="text-2xl font-semibold">Avaliação Detalhada SPIN Selling</h2>
+              <DetailedFeedback 
+                competencies={competencies.map(c => ({
+                  competency: c.competency_name,
+                  score: c.score,
+                  feedback: c.feedback || '',
+                  spin_category: c.spin_category,
+                  sub_scores: c.sub_scores,
+                  ai_suggestions: c.ai_suggestions
+                }))}
+                meetingType={session.meeting_type}
+                personaDifficulty={session.personas?.difficulty}
+              />
+            </div>
           )}
 
           <Card className="p-4 sm:p-6">
