@@ -1,1 +1,4 @@
 project_id = "wzronlqzkxqzohugajvz"
+
+[functions.chat-roleplay]
+verify_jwt = true
