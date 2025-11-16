@@ -22,6 +22,14 @@ interface InsightData {
   };
   sessionsData: any[];
   scoresData: any[];
+  sessionHighlights?: string[];
+  sessionRecommendations?: string[];
+  voiceMetrics?: {
+    talk_listen_ratio?: number;
+    filler_words_per_minute?: number;
+    speech_speed_wpm?: number;
+    longest_monologue_seconds?: number;
+  };
 }
 
 export const generatePerformanceReport = (data: InsightData, userName: string) => {
@@ -126,6 +134,76 @@ export const generatePerformanceReport = (data: InsightData, userName: string) =
   });
 
   yPos += 10;
+
+  // Voice Metrics Section (if available)
+  if (data.voiceMetrics) {
+    checkAddPage(60);
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Análise Vocal', 20, yPos);
+    yPos += 8;
+
+    const metrics = [
+      { label: 'Razão Fala/Escuta', value: data.voiceMetrics.talk_listen_ratio?.toFixed(2) || 'N/A', ideal: 'Ideal: 0.8-1.2' },
+      { label: 'Palavras de Preenchimento', value: `${data.voiceMetrics.filler_words_per_minute?.toFixed(1) || 'N/A'}/min`, ideal: 'Ideal: < 3/min' },
+      { label: 'Velocidade de Fala', value: `${data.voiceMetrics.speech_speed_wpm || 'N/A'} ppm`, ideal: 'Ideal: 140-160 ppm' },
+      { label: 'Maior Monólogo', value: `${data.voiceMetrics.longest_monologue_seconds || 'N/A'}s`, ideal: 'Ideal: < 120s' },
+    ];
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Métrica', 'Valor', 'Referência']],
+      body: metrics.map(m => [m.label, m.value, m.ideal]),
+      theme: 'striped',
+      headStyles: { fillColor: [139, 92, 246] },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 15;
+  }
+
+  // Session Highlights (if available)
+  if (data.sessionHighlights && data.sessionHighlights.length > 0) {
+    checkAddPage(50);
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Destaques da Sessão', 20, yPos);
+    yPos += 8;
+
+    doc.setFontSize(10);
+    data.sessionHighlights.forEach((highlight, index) => {
+      checkAddPage(8);
+      doc.setTextColor(34, 197, 94);
+      doc.text('✓', 22, yPos);
+      doc.setTextColor(60, 60, 60);
+      const lines = doc.splitTextToSize(highlight, pageWidth - 50);
+      doc.text(lines, 28, yPos);
+      yPos += lines.length * 6 + 2;
+    });
+
+    yPos += 8;
+  }
+
+  // Session Recommendations (if available)
+  if (data.sessionRecommendations && data.sessionRecommendations.length > 0) {
+    checkAddPage(50);
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Recomendações Imediatas', 20, yPos);
+    yPos += 8;
+
+    doc.setFontSize(10);
+    data.sessionRecommendations.forEach((rec, index) => {
+      checkAddPage(8);
+      doc.setTextColor(59, 130, 246);
+      doc.text('→', 22, yPos);
+      doc.setTextColor(60, 60, 60);
+      const lines = doc.splitTextToSize(rec, pageWidth - 50);
+      doc.text(lines, 28, yPos);
+      yPos += lines.length * 6 + 2;
+    });
+
+    yPos += 10;
+  }
 
   // SPIN Analysis
   checkAddPage(80);

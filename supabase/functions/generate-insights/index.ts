@@ -41,7 +41,7 @@ serve(async (req) => {
     // Fetch user sessions and competency scores
     const { data: sessions } = await supabase
       .from('roleplay_sessions')
-      .select('id, meeting_type, overall_score, duration_seconds, completed_at')
+      .select('id, meeting_type, overall_score, duration_seconds, completed_at, voice_metrics, highlights, recommendations')
       .eq('user_id', targetUserId)
       .eq('status', 'completed')
       .order('completed_at', { ascending: false });
@@ -156,8 +156,21 @@ Seja específico, use números dos dados fornecidos, e foque em insights acioná
         analysis: analysis,
       });
 
+    // Get the most recent session's voice metrics, highlights, and recommendations
+    const mostRecentSession = sessions && sessions.length > 0 ? sessions[0] : null;
+    const voiceMetrics = mostRecentSession?.voice_metrics || null;
+    const sessionHighlights = mostRecentSession?.highlights || [];
+    const sessionRecommendations = mostRecentSession?.recommendations || [];
+
     return new Response(
-      JSON.stringify({ analysis, sessionsData: sessions, scoresData: scores }),
+      JSON.stringify({ 
+        analysis, 
+        sessionsData: sessions, 
+        scoresData: scores,
+        voiceMetrics,
+        sessionHighlights,
+        sessionRecommendations
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
