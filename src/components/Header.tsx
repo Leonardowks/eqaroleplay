@@ -1,4 +1,4 @@
-import { User, LogOut, Menu } from 'lucide-react';
+import { User, LogOut, Menu, Shield } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/sheet';
 import { useState } from 'react';
 import logo from '@/assets/logo.png';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface HeaderProps {
   userName?: string;
@@ -23,6 +24,7 @@ const Header = ({ userName = 'Usuário', userAvatar }: HeaderProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const { isAdmin } = useUserRole();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -70,6 +72,19 @@ const Header = ({ userName = 'Usuário', userAvatar }: HeaderProps) => {
                 {item.label}
               </button>
             ))}
+            {isAdmin && (
+              <button
+                onClick={() => navigate('/admin')}
+                className={`text-sm font-medium transition flex items-center gap-1 ${
+                  location.pathname.startsWith('/admin')
+                    ? 'text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Shield className="h-4 w-4" />
+                Admin
+              </button>
+            )}
           </nav>
 
           {/* Mobile Menu */}
@@ -100,6 +115,22 @@ const Header = ({ userName = 'Usuário', userAvatar }: HeaderProps) => {
                     {item.label}
                   </button>
                 ))}
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      navigate('/admin');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`text-left px-4 py-2 rounded-md transition flex items-center gap-2 ${
+                      location.pathname.startsWith('/admin')
+                        ? 'bg-primary text-primary-foreground'
+                        : 'hover:bg-muted'
+                    }`}
+                  >
+                    <Shield className="h-4 w-4" />
+                    Admin
+                  </button>
+                )}
               </nav>
             </SheetContent>
           </Sheet>
