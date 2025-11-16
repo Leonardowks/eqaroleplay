@@ -617,11 +617,17 @@ const VoiceChat = () => {
         })
         .eq("id", sessionId);
 
+      // Wait for messages to be saved before evaluation
+      console.log("Waiting 2 seconds for messages to be saved...");
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
       // Trigger AI evaluation
       try {
+        console.log("Starting AI evaluation for session:", sessionId);
         await supabase.functions.invoke('evaluate-competencies', {
           body: { sessionId },
         });
+        console.log("AI evaluation triggered successfully");
       } catch (err) {
         console.error('Error evaluating:', err);
       }
