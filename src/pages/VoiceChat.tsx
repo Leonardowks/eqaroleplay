@@ -64,22 +64,48 @@ const VoiceChat = () => {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      console.log("Component unmounting - cleaning up resources");
-      try {
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.close();
+      console.log("🧹 Component unmounting - cleaning up resources");
+      
+      const cleanup = async () => {
+        try {
+          // 1. Fechar WebSocket primeiro
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.close();
+            console.log('✅ WebSocket closed');
+          }
+          wsRef.current = null;
+          
+          // 2. Parar gravação (aguardar cleanup assíncrono)
+          if (recorderRef.current) {
+            await recorderRef.current.stop();
+            recorderRef.current = null;
+            console.log('✅ Recorder destroyed');
+          }
+          
+          // 3. Destruir fila de áudio
+          if (audioQueueRef.current) {
+            audioQueueRef.current.destroy();
+            audioQueueRef.current = null;
+            console.log('✅ AudioQueue destroyed');
+          }
+          
+          // 4. AudioContext já foi fechado pelo AudioQueue.destroy()
+          audioContextRef.current = null;
+          
+          // 5. Limpar interval de atividade
+          if (activityCheckIntervalRef.current) {
+            clearInterval(activityCheckIntervalRef.current);
+            activityCheckIntervalRef.current = null;
+            console.log('✅ Activity check cleared');
+          }
+          
+          console.log('✅ All resources cleaned up successfully');
+        } catch (error) {
+          console.error("❌ Error during cleanup:", error);
         }
-        stopRecording();
-        audioQueueRef.current?.clear();
-        if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-          audioContextRef.current.close();
-        }
-        if (activityCheckIntervalRef.current) {
-          clearInterval(activityCheckIntervalRef.current);
-        }
-      } catch (error) {
-        console.error("Error during cleanup:", error);
-      }
+      };
+      
+      cleanup();
     };
   }, []);
 
@@ -704,8 +730,10 @@ const VoiceChat = () => {
     }
   };
 
-  const stopRecording = useCallback(() => {
-    recorderRef.current?.stop();
+  const stopRecording = useCallback(async () => {
+    if (recorderRef.current) {
+      await recorderRef.current.stop();
+    }
     setIsRecording(false);
   }, []);
 
