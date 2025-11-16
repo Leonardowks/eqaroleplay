@@ -494,6 +494,7 @@ const VoiceChat = () => {
           // Safely extract error message
           let errorMessage = "Erro na conexão de voz";
           let errorDetails = "";
+          let errorVariant: "default" | "destructive" = "destructive";
           
           if (typeof data.error === 'string') {
             errorMessage = data.error;
@@ -502,21 +503,35 @@ const VoiceChat = () => {
             errorMessage = data.error.message || "Erro desconhecido";
             errorDetails = data.error.details || "";
             
-            // Provide specific messages for common errors
-            if (errorCode === "rate_limit_exceeded") {
-              errorMessage = "Limite de uso excedido - tente novamente em alguns instantes";
+            // Provide specific, user-friendly messages for common errors
+            if (errorMessage.includes("API version mismatch")) {
+              errorMessage = "Erro de compatibilidade com a API de voz";
+              errorDetails = "Por favor, tente novamente. Se o problema persistir, contate o suporte.";
+              errorVariant = "destructive";
+            } else if (errorMessage.includes("beta client secret")) {
+              errorMessage = "Erro de autenticação com o serviço de voz";
+              errorDetails = "Reinicie a sessão de voz para tentar novamente.";
+              errorVariant = "destructive";
+            } else if (errorCode === "rate_limit_exceeded") {
+              errorMessage = "Limite de uso excedido";
+              errorDetails = "Aguarde alguns instantes antes de tentar novamente.";
+              errorVariant = "default";
             } else if (errorCode === "invalid_request_error") {
-              errorMessage = "Erro de configuração - reinicie a sessão";
+              errorMessage = "Erro de configuração do sistema";
+              errorDetails = "Reinicie a sessão de voz.";
+              errorVariant = "destructive";
             } else if (data.error.recoverable) {
               console.log("[WebSocket] Error is recoverable, connection maintained");
-              errorMessage = "Problema temporário detectado - conexão mantida";
+              errorMessage = "Problema temporário detectado";
+              errorDetails = "A conexão foi mantida, continue normalmente.";
+              errorVariant = "default";
             }
           }
           
           toast({
-            title: "Aviso",
-            description: errorMessage + (errorDetails ? ` (${errorDetails})` : ""),
-            variant: data.error?.recoverable ? "default" : "destructive",
+            title: errorVariant === "destructive" ? "Erro" : "Aviso",
+            description: errorMessage + (errorDetails ? ` ${errorDetails}` : ""),
+            variant: errorVariant,
           });
         }
       };
@@ -533,16 +548,24 @@ const VoiceChat = () => {
         
         setIsConnected(false);
         
-        // Provide more detailed error message based on ready state
-        let errorDescription = "Não foi possível conectar ao servidor de voz";
-        if (wsRef.current?.readyState === WebSocket.CLOSING) {
-          errorDescription = "Conexão sendo encerrada";
-        } else if (wsRef.current?.readyState === WebSocket.CLOSED) {
-          errorDescription = "Conexão foi fechada inesperadamente";
+        // Provide more detailed, user-friendly error messages
+        let errorTitle = "Erro de Conexão";
+        let errorDescription = "Não foi possível conectar ao sistema de voz";
+        
+        const readyState = wsRef.current?.readyState;
+        if (readyState === WebSocket.CONNECTING) {
+          errorTitle = "Falha ao Conectar";
+          errorDescription = "O servidor de voz não respondeu. Verifique sua conexão e tente novamente.";
+        } else if (readyState === WebSocket.CLOSING) {
+          errorTitle = "Conexão Encerrando";
+          errorDescription = "A conexão está sendo encerrada. Aguarde...";
+        } else if (readyState === WebSocket.CLOSED) {
+          errorTitle = "Conexão Perdida";
+          errorDescription = "A conexão com o servidor de voz foi perdida. Tente reconectar.";
         }
         
         toast({
-          title: "Erro de Conexão",
+          title: errorTitle,
           description: errorDescription,
           variant: "destructive",
           duration: 4000,
@@ -562,6 +585,25 @@ const VoiceChat = () => {
         setIsConnected(false);
         stopRecording();
 
+        // Provide specific close reason messages
+        let closeTitle = "Conexão Encerrada";
+        let closeDescription = "A sessão de voz foi encerrada";
+        
+        if (event.code === 1000) {
+          closeDescription = "Sessão encerrada normalmente";
+        } else if (event.code === 1001) {
+          closeDescription = "Servidor desconectou. Tente novamente.";
+        } else if (event.code === 1006) {
+          closeTitle = "Conexão Perdida";
+          closeDescription = "A conexão foi perdida inesperadamente. Tentando reconectar...";
+        } else if (event.code === 1008) {
+          closeTitle = "Erro de Protocolo";
+          closeDescription = "Erro de comunicação com o servidor. Reinicie a sessão.";
+        } else if (event.code === 1011) {
+          closeTitle = "Erro no Servidor";
+          closeDescription = "O servidor encontrou um erro. Tente novamente em instantes.";
+        }
+
         // Only attempt reconnection if not already reconnecting and haven't exceeded attempts
         if (connectionAttempts < 3 && !isReconnectingRef.current && !event.wasClean) {
           isReconnectingRef.current = true;
@@ -569,7 +611,7 @@ const VoiceChat = () => {
           
           toast({
             title: "Reconectando...",
-            description: `Tentativa ${connectionAttempts + 1} de 3`,
+            description: `Tentativa ${connectionAttempts + 1} de 3 - ${closeDescription}`,
           });
           
           setTimeout(() => {
@@ -586,13 +628,19 @@ const VoiceChat = () => {
         } else if (connectionAttempts >= 3) {
           console.error("[WebSocket] Max reconnection attempts reached");
           toast({
-            title: "Conexão Perdida",
-            description: "Não foi possível reconectar após 3 tentativas. Tente reiniciar a sessão.",
+            title: "Falha na Reconexão",
+            description: "Não foi possível restabelecer a conexão após 3 tentativas. Por favor, finalize e inicie uma nova sessão de voz.",
             variant: "destructive",
-            duration: 6000,
+            duration: 8000,
           });
         } else if (event.wasClean) {
           console.log("[WebSocket] Connection closed cleanly (expected)");
+          toast({
+            title: closeTitle,
+            description: closeDescription,
+            variant: "default",
+            duration: 3000,
+          });
         }
       };
     } catch (error) {
@@ -604,9 +652,26 @@ const VoiceChat = () => {
         timestamp: new Date().toISOString()
       });
       
+      // Provide specific error messages based on error type
+      let errorTitle = "Erro de Conexão";
+      let errorDescription = "Não foi possível estabelecer conexão com o sistema de voz";
+      
+      if (error instanceof Error) {
+        if (error.message.includes("timeout")) {
+          errorTitle = "Tempo Esgotado";
+          errorDescription = "A conexão demorou muito para ser estabelecida. Verifique sua internet e tente novamente.";
+        } else if (error.message.includes("network")) {
+          errorTitle = "Erro de Rede";
+          errorDescription = "Problema na conexão de rede. Verifique sua internet.";
+        } else if (error.message.includes("refused")) {
+          errorTitle = "Conexão Recusada";
+          errorDescription = "O servidor não aceitou a conexão. Tente novamente em instantes.";
+        }
+      }
+      
       toast({
-        title: "Erro de Conexão",
-        description: "Não foi possível estabelecer conexão com o servidor de voz. Verifique sua conexão com a internet.",
+        title: errorTitle,
+        description: errorDescription,
         variant: "destructive",
         duration: 5000,
       });
