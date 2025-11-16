@@ -125,11 +125,11 @@ Retorne APENAS um JSON array com este formato exato:
 
     const evaluations = JSON.parse(toolCall.function.arguments).evaluations;
 
-    // Save competencies
+    // Save competencies - Convert scores from 0-100 to 0-10 scale
     const competenciesToInsert = evaluations.map((ev: any) => ({
       session_id: sessionId,
       competency_name: ev.competency,
-      score: ev.score,
+      score: ev.score / 10, // Convert from 0-100 to 0-10
       feedback: ev.feedback,
     }));
 
@@ -142,8 +142,8 @@ Retorne APENAS um JSON array com este formato exato:
       throw insertError;
     }
 
-    // Calculate overall score
-    const overallScore = evaluations.reduce((sum: number, ev: any) => sum + ev.score, 0) / evaluations.length;
+    // Calculate overall score (convert from 0-100 to 0-10)
+    const overallScore = evaluations.reduce((sum: number, ev: any) => sum + ev.score, 0) / evaluations.length / 10;
 
     // Update session
     await supabase
