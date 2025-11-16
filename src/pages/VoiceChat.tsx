@@ -57,13 +57,17 @@ const VoiceChat = () => {
   useEffect(() => {
     return () => {
       console.log("Component unmounting - cleaning up resources");
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.close();
-      }
-      stopRecording();
-      audioQueueRef.current?.clear();
-      if (audioContextRef.current?.state !== 'closed') {
-        audioContextRef.current.close();
+      try {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.close();
+        }
+        stopRecording();
+        audioQueueRef.current?.clear();
+        if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+          audioContextRef.current.close();
+        }
+      } catch (error) {
+        console.error("Error during cleanup:", error);
       }
     };
   }, []);
@@ -194,7 +198,7 @@ const VoiceChat = () => {
   const connectWebSocket = async (sessionId: string, personaId: string, meetingType: string) => {
     try {
       // Clean up previous resources if they exist
-      if (audioContextRef.current?.state !== 'closed') {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         await audioContextRef.current.close();
       }
       if (recorderRef.current) {
@@ -361,18 +365,22 @@ const VoiceChat = () => {
   };
 
   const handleEndSession = async () => {
-    if (wsRef.current) {
-      wsRef.current.close();
-    }
-    
-    stopRecording();
-    
-    if (audioQueueRef.current) {
-      audioQueueRef.current.clear();
-    }
-    
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      await audioContextRef.current.close();
+    try {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+      
+      stopRecording();
+      
+      if (audioQueueRef.current) {
+        audioQueueRef.current.clear();
+      }
+      
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        await audioContextRef.current.close();
+      }
+    } catch (error) {
+      console.error("Error during session cleanup:", error);
     }
 
     const sessionDuration = Math.floor((Date.now() - sessionStartTime.getTime()) / 1000);

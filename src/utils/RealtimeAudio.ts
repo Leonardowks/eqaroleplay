@@ -39,21 +39,40 @@ export class AudioRecorder {
   }
 
   stop() {
-    if (this.source) {
-      this.source.disconnect();
-      this.source = null;
+    try {
+      if (this.source) {
+        this.source.disconnect();
+        this.source = null;
+      }
+    } catch (error) {
+      console.error("Error disconnecting source:", error);
     }
-    if (this.processor) {
-      this.processor.disconnect();
-      this.processor = null;
+    
+    try {
+      if (this.processor) {
+        this.processor.disconnect();
+        this.processor = null;
+      }
+    } catch (error) {
+      console.error("Error disconnecting processor:", error);
     }
-    if (this.stream) {
-      this.stream.getTracks().forEach((track) => track.stop());
-      this.stream = null;
+    
+    try {
+      if (this.stream) {
+        this.stream.getTracks().forEach((track) => track.stop());
+        this.stream = null;
+      }
+    } catch (error) {
+      console.error("Error stopping stream:", error);
     }
-    if (this.audioContext) {
-      this.audioContext.close();
-      this.audioContext = null;
+    
+    try {
+      if (this.audioContext && this.audioContext.state !== 'closed') {
+        this.audioContext.close();
+        this.audioContext = null;
+      }
+    } catch (error) {
+      console.error("Error closing audio context:", error);
     }
   }
 }
