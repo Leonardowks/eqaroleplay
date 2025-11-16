@@ -23,8 +23,12 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="space-y-4 w-full max-w-md p-6">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
+        <div className="text-center mb-8">
+          <div className="w-24 h-24 mx-auto mb-4 bg-gradient-primary rounded-2xl animate-pulse"></div>
+          <p className="text-lg text-foreground font-medium">Carregando...</p>
+        </div>
+        <div className="space-y-4 w-full max-w-md">
           <Skeleton className="h-12 w-full" />
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-32 w-full" />

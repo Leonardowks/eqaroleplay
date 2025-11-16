@@ -86,10 +86,10 @@ const History = () => {
     <div className="min-h-screen bg-background">
       <Header userName={profile?.full_name} userAvatar={profile?.avatar_url} />
       
-      <main className="container mx-auto px-6 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Histórico de Sessões</h1>
-          <p className="text-muted-foreground">
+      <main className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Histórico de Sessões</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Revise suas sessões anteriores e acompanhe seu progresso.
           </p>
         </div>
@@ -112,12 +112,12 @@ const History = () => {
             {sessions.map((session) => (
               <Card
                 key={session.id}
-                className="p-6 bg-card border-border hover:shadow-glow transition-shadow"
+                className="p-4 sm:p-6 bg-card border-border hover:shadow-glow transition-shadow"
               >
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div className="flex flex-col gap-4">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-bold">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                      <h3 className="text-base sm:text-lg font-bold">
                         {getMeetingTypeLabel(session.meeting_type)}
                       </h3>
                       {getMethodBadge(session.method)}
@@ -135,21 +135,31 @@ const History = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-6">
-                    <div className="text-center">
-                      <div className={`text-3xl font-bold ${getScoreColor(session.overall_score || 0)}`}>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <div className="text-center px-4 py-2 bg-muted/30 rounded-lg flex-shrink-0">
+                      <div className={`text-xl sm:text-2xl font-bold ${getScoreColor(session.overall_score || 0)}`}>
                         {session.overall_score?.toFixed(1) || 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">Pontuação</div>
                     </div>
 
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline">
-                        <Eye size={16} className="mr-2" />
-                        Detalhes
+                    <div className="flex flex-col sm:flex-row gap-2 flex-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/history/${session.id}`)}
+                        className="w-full sm:w-auto"
+                      >
+                        <Eye className="mr-2" size={16} />
+                        Ver Detalhes
                       </Button>
-                      <Button size="sm" variant="outline">
-                        <FileText size={16} className="mr-2" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/history/${session.id}`)}
+                        className="w-full sm:w-auto"
+                      >
+                        <FileText className="mr-2" size={16} />
                         Transcrição
                       </Button>
                     </div>

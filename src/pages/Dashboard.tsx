@@ -127,58 +127,59 @@ const Dashboard = () => {
         </div>
 
         {/* Metrics cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="p-6 bg-card border-border hover:shadow-glow transition-shadow">
-            <div className="flex items-start justify-between mb-4">
-              <div className="p-3 bg-primary/10 rounded-lg">
-                <Play className="text-primary" size={24} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <Card className="p-4 sm:p-6 bg-card border-border hover:shadow-glow transition-shadow">
+            <div className="flex items-start justify-between mb-3 sm:mb-4">
+              <div className="p-2 sm:p-3 bg-primary/10 rounded-lg">
+                <Play className="text-primary" size={20} />
               </div>
             </div>
-            <h3 className="text-2xl font-bold mb-1">{stats.totalSessions}</h3>
-            <p className="text-sm text-muted-foreground">Sessões Realizadas</p>
+            <h3 className="text-xl sm:text-2xl font-bold mb-1">{stats.totalSessions}</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground">Sessões Realizadas</p>
           </Card>
 
-          <Card className="p-6 bg-card border-border hover:shadow-glow transition-shadow">
-            <div className="flex items-start justify-between mb-4">
-              <div className="p-3 bg-secondary/10 rounded-lg">
-                <Clock className="text-secondary" size={24} />
+          <Card className="p-4 sm:p-6 bg-card border-border hover:shadow-glow transition-shadow">
+            <div className="flex items-start justify-between mb-3 sm:mb-4">
+              <div className="p-2 sm:p-3 bg-secondary/10 rounded-lg">
+                <Clock className="text-secondary" size={20} />
               </div>
             </div>
-            <h3 className="text-2xl font-bold mb-1">{Math.floor(stats.avgDuration / 60)}min</h3>
-            <p className="text-sm text-muted-foreground">Duração Média</p>
+            <h3 className="text-xl sm:text-2xl font-bold mb-1">{Math.floor(stats.avgDuration / 60)}min</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground">Duração Média</p>
           </Card>
 
-          <Card className="p-6 bg-card border-border hover:shadow-glow transition-shadow">
-            <div className="flex items-start justify-between mb-4">
-              <div className="p-3 bg-accent/10 rounded-lg">
-                <Trophy className="text-accent" size={24} />
+          <Card className="p-4 sm:p-6 bg-card border-border hover:shadow-glow transition-shadow">
+            <div className="flex items-start justify-between mb-3 sm:mb-4">
+              <div className="p-2 sm:p-3 bg-accent/10 rounded-lg">
+                <Trophy className="text-accent" size={20} />
               </div>
             </div>
-            <h3 className="text-2xl font-bold mb-1">{stats.avgScore.toFixed(1)}</h3>
-            <p className="text-sm text-muted-foreground">Pontuação Geral</p>
+            <h3 className="text-xl sm:text-2xl font-bold mb-1">{stats.avgScore.toFixed(1)}</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground">Pontuação Geral</p>
           </Card>
 
-          <Card className="p-6 bg-card border-border hover:shadow-glow transition-shadow">
-            <div className="flex items-start justify-between mb-4">
-              <div className="p-3 bg-primary/10 rounded-lg">
-                <TrendingUp className="text-primary" size={24} />
+          <Card className="p-4 sm:p-6 bg-card border-border hover:shadow-glow transition-shadow">
+            <div className="flex items-start justify-between mb-3 sm:mb-4">
+              <div className="p-2 sm:p-3 bg-primary/10 rounded-lg">
+                <TrendingUp className="text-primary" size={20} />
               </div>
             </div>
-            <h3 className="text-2xl font-bold mb-1 text-primary">+{stats.evolution}%</h3>
-            <p className="text-sm text-muted-foreground">Taxa de Evolução</p>
+            <h3 className="text-xl sm:text-2xl font-bold mb-1 text-primary">+{stats.evolution}%</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground">Taxa de Evolução</p>
           </Card>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-8 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">
           {/* Radar Chart */}
-          <Card className="p-6 bg-card border-border">
-            <h3 className="text-xl font-bold mb-6">Competências</h3>
-            <ResponsiveContainer width="100%" height={400}>
+          <Card className="p-4 sm:p-6 bg-card border-border">
+            <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Competências</h3>
+            <ResponsiveContainer width="100%" height={300} className="sm:h-[400px]">
               <RadarChart data={competencyData}>
                 <PolarGrid stroke="hsl(var(--border))" />
                 <PolarAngleAxis
                   dataKey="competency"
-                  tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
+                  tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }}
+                  className="sm:text-xs"
                 />
                 <PolarRadiusAxis angle={90} domain={[0, 10]} />
                 <Radar
@@ -193,9 +194,9 @@ const Dashboard = () => {
           </Card>
 
           {/* Recent sessions */}
-          <Card className="p-6 bg-card border-border">
-            <h3 className="text-xl font-bold mb-6">Últimas Sessões</h3>
-            <div className="space-y-4">
+          <Card className="p-4 sm:p-6 bg-card border-border">
+            <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Últimas Sessões</h3>
+            <div className="space-y-3 sm:space-y-4">
               {recentSessions.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
                   Nenhuma sessão completada ainda. Comece a treinar!
@@ -204,18 +205,18 @@ const Dashboard = () => {
                 recentSessions.map((session) => (
                   <div
                     key={session.id}
-                    className="flex items-center justify-between p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition gap-2 sm:gap-0"
                   >
                     <div className="flex-1">
-                      <p className="font-medium mb-1">
+                      <p className="font-medium mb-1 text-sm sm:text-base">
                         {getMeetingTypeLabel(session.meeting_type)}
                       </p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs sm:text-sm text-muted-foreground">
                         {format(new Date(session.completed_at), "dd 'de' MMM, HH:mm", { locale: ptBR })}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-primary">
+                    <div className="text-left sm:text-right">
+                      <div className="text-lg sm:text-xl font-bold text-primary">
                         {session.overall_score?.toFixed(1) || 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">
