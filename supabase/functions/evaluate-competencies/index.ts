@@ -147,10 +147,18 @@ serve(async (req) => {
 
     if (messagesError) throw messagesError;
 
+    if (!messages || messages.length === 0) {
+      throw new Error('No messages found for session');
+    }
+
+    console.log(`Found ${messages.length} messages for session ${sessionId}`);
+
     // Formatar conversa
     const conversation = messages
       .map(m => `${m.role === 'user' ? 'Vendedor' : 'Cliente'}: ${m.content}`)
       .join('\n\n');
+
+    console.log(`Conversation preview: ${conversation.substring(0, 200)}...`);
 
     const persona = session.personas;
     const meetingTypeLabels: Record<string, string> = {
@@ -291,7 +299,7 @@ ${conversation}`;
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: 'Você é um avaliador especializado em SPIN Selling para vendas B2B de soluções de AUTOMAÇÃO COM IA. Retorne APENAS o array JSON com as 7 competências avaliadas, sem texto adicional ou explicações.' },
+          { role: 'system', content: 'Você é um avaliador SPIN Selling para vendas B2B de automação com IA. Analise a conversa fornecida e retorne APENAS o JSON array com as 7 competências avaliadas. Não adicione explicações ou texto adicional.' },
           { role: 'user', content: systemPrompt }
         ],
       }),
@@ -335,14 +343,16 @@ ${conversation}`;
       throw new Error('Invalid evaluation format from AI');
     }
 
-    // Salvar competências no banco
+    // Salvar competências no banco (garantir que scores são inteiros)
     const competencyInserts = evaluations.map((comp: any) => ({
       session_id: sessionId,
       competency_name: comp.competency,
-      score: comp.score,
+      score: Math.round(comp.score),
       feedback: comp.feedback,
       spin_category: comp.spin_category || null,
-      sub_scores: comp.sub_scores || null,
+      sub_scores: comp.sub_scores ? Object.fromEntries(
+        Object.entries(comp.sub_scores).map(([k, v]) => [k, Math.round(Number(v))])
+      ) : null,
       sub_scores_feedback: comp.sub_scores_feedback || null,
       ai_suggestions: comp.ai_suggestions || null,
     }));
