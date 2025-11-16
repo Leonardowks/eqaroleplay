@@ -197,6 +197,7 @@ export type Database = {
     }
     Functions: {
       cleanup_abandoned_sessions: { Args: never; Returns: undefined }
+      cleanup_abandoned_voice_sessions: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
