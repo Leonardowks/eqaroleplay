@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Clock, Calendar, MessageSquare, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Clock, Calendar, MessageSquare, TrendingUp, FileText, Target } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DetailedFeedback from '@/components/DetailedFeedback';
@@ -214,21 +214,103 @@ const SessionDetail = () => {
           </Card>
 
           {competencies.length > 0 && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-semibold">Avaliação Detalhada SPIN Selling</h2>
-              <DetailedFeedback 
-                competencies={competencies.map(c => ({
-                  competency: c.competency_name,
-                  score: c.score,
-                  feedback: c.feedback || '',
-                  spin_category: c.spin_category,
-                  sub_scores: c.sub_scores,
-                  ai_suggestions: c.ai_suggestions
-                }))}
-                meetingType={session.meeting_type}
-                personaDifficulty={session.personas?.difficulty}
-              />
-            </div>
+            <>
+              <div className="space-y-6">
+                <h2 className="text-2xl font-semibold">Avaliação Detalhada SPIN Selling</h2>
+                <DetailedFeedback 
+                  competencies={competencies.map(c => ({
+                    competency: c.competency_name,
+                    score: c.score,
+                    feedback: c.feedback || '',
+                    spin_category: c.spin_category,
+                    sub_scores: c.sub_scores,
+                    ai_suggestions: c.ai_suggestions
+                  }))}
+                  meetingType={session.meeting_type}
+                  personaDifficulty={session.personas?.difficulty}
+                />
+              </div>
+
+              {/* Insights Section */}
+              {(session.executive_summary || session.highlights || session.recommendations) && (
+                <Card className="p-6">
+                  <h2 className="text-2xl font-semibold mb-6">Insights da Sessão</h2>
+                  
+                  {session.executive_summary && (
+                    <div className="mb-6">
+                      <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-primary" />
+                        Resumo Executivo
+                      </h3>
+                      <p className="text-muted-foreground">{session.executive_summary}</p>
+                    </div>
+                  )}
+
+                  {session.highlights && session.highlights.length > 0 && (
+                    <div className="mb-6">
+                      <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-green-600" />
+                        Destaques
+                      </h3>
+                      <ul className="space-y-2">
+                        {session.highlights.map((highlight: string, idx: number) => (
+                          <li key={idx} className="flex items-start gap-2">
+                            <span className="text-green-600 mt-1">✓</span>
+                            <span className="text-foreground">{highlight}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {session.recommendations && session.recommendations.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                        <Target className="h-5 w-5 text-blue-600" />
+                        Recomendações
+                      </h3>
+                      <ul className="space-y-2">
+                        {session.recommendations.map((rec: string, idx: number) => (
+                          <li key={idx} className="flex items-start gap-2">
+                            <span className="text-blue-600 mt-1">→</span>
+                            <span className="text-foreground">{rec}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </Card>
+              )}
+
+              {/* Voice Metrics */}
+              {session.voice_metrics && (
+                <Card className="p-6">
+                  <h2 className="text-2xl font-semibold mb-6">Análise Vocal</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-sm text-muted-foreground mb-1">Razão Fala/Escuta</p>
+                      <p className="text-2xl font-bold">{session.voice_metrics.talk_listen_ratio?.toFixed(2) || 'N/A'}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Ideal: 0.8 - 1.2</p>
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-sm text-muted-foreground mb-1">Palavras de Preenchimento</p>
+                      <p className="text-2xl font-bold">{session.voice_metrics.filler_words_per_minute?.toFixed(1) || 'N/A'}/min</p>
+                      <p className="text-xs text-muted-foreground mt-1">Ideal: {'<'} 3/min</p>
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-sm text-muted-foreground mb-1">Velocidade de Fala</p>
+                      <p className="text-2xl font-bold">{session.voice_metrics.speech_speed_wpm || 'N/A'} ppm</p>
+                      <p className="text-xs text-muted-foreground mt-1">Ideal: 140-160 ppm</p>
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-sm text-muted-foreground mb-1">Maior Monólogo</p>
+                      <p className="text-2xl font-bold">{session.voice_metrics.longest_monologue_seconds || 'N/A'}s</p>
+                      <p className="text-xs text-muted-foreground mt-1">Ideal: {'<'} 120s</p>
+                    </div>
+                  </div>
+                </Card>
+              )}
+            </>
           )}
 
           <Card className="p-4 sm:p-6">

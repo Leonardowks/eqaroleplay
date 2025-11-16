@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import SPINEvolutionChart from '@/components/SPINEvolutionChart';
 import CompetencyHeatmap from '@/components/CompetencyHeatmap';
+import KPICards from '@/components/KPICards';
 import { generatePerformanceReport } from '@/utils/pdfGenerator';
 import { FileText, Download } from 'lucide-react';
 
@@ -28,6 +29,10 @@ const Dashboard = () => {
     avgDuration: 0,
     avgScore: 0,
     evolution: 0,
+    bestScore: 0,
+    worstScore: 0,
+    totalTime: 0,
+    scoreTrend: 0,
   });
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
   const [competencyData, setCompetencyData] = useState<any[]>([]);
@@ -78,7 +83,7 @@ const Dashboard = () => {
 
     setActiveSessionsCount(activeSessions?.length || 0);
 
-    if (sessions) {
+    if (sessions && sessions.length > 0) {
       // Get recent sessions
       const recent = sessions
         .sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime())
@@ -86,14 +91,38 @@ const Dashboard = () => {
       setRecentSessions(recent);
       
       const totalSessions = sessions.length;
-      const avgDuration = sessions.reduce((acc, s) => acc + (s.duration_seconds || 0), 0) / totalSessions || 0;
+      const totalTime = sessions.reduce((acc, s) => acc + (s.duration_seconds || 0), 0);
+      const avgDuration = totalTime / totalSessions || 0;
       const avgScore = sessions.reduce((acc, s) => acc + (s.overall_score || 0), 0) / totalSessions || 0;
+      
+      // Calculate best and worst scores
+      const scores = sessions.map(s => s.overall_score || 0).filter(s => s > 0);
+      const bestScore = scores.length > 0 ? Math.max(...scores) : 0;
+      const worstScore = scores.length > 0 ? Math.min(...scores) : 0;
+      
+      // Calculate score trend (comparing last 5 sessions to previous 5)
+      const sortedByDate = [...sessions].sort((a, b) => 
+        new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime()
+      );
+      const recentScores = sortedByDate.slice(0, 5).map(s => s.overall_score || 0);
+      const previousScores = sortedByDate.slice(5, 10).map(s => s.overall_score || 0);
+      
+      let scoreTrend = 0;
+      if (recentScores.length > 0 && previousScores.length > 0) {
+        const recentAvg = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
+        const previousAvg = previousScores.reduce((a, b) => a + b, 0) / previousScores.length;
+        scoreTrend = previousAvg > 0 ? ((recentAvg - previousAvg) / previousAvg) * 100 : 0;
+      }
       
       setStats({
         totalSessions,
         avgDuration: Math.round(avgDuration),
         avgScore: parseFloat(avgScore.toFixed(1)),
-        evolution: 12.5, // Mocked for now
+        evolution: 12.5,
+        bestScore,
+        worstScore,
+        totalTime,
+        scoreTrend: parseFloat(scoreTrend.toFixed(1)),
       });
     }
 
@@ -366,47 +395,16 @@ const Dashboard = () => {
           </Button>
         </div>
 
-        {/* Metrics cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          <Card className="p-4 sm:p-6 bg-card border-border hover:shadow-glow transition-shadow">
-            <div className="flex items-start justify-between mb-3 sm:mb-4">
-              <div className="p-2 sm:p-3 bg-primary/10 rounded-lg">
-                <Play className="text-primary" size={20} />
-              </div>
-            </div>
-            <h3 className="text-xl sm:text-2xl font-bold mb-1">{stats.totalSessions}</h3>
-            <p className="text-xs sm:text-sm text-muted-foreground">Sessões Realizadas</p>
-          </Card>
-
-          <Card className="p-4 sm:p-6 bg-card border-border hover:shadow-glow transition-shadow">
-            <div className="flex items-start justify-between mb-3 sm:mb-4">
-              <div className="p-2 sm:p-3 bg-secondary/10 rounded-lg">
-                <Clock className="text-secondary" size={20} />
-              </div>
-            </div>
-            <h3 className="text-xl sm:text-2xl font-bold mb-1">{Math.floor(stats.avgDuration / 60)}min</h3>
-            <p className="text-xs sm:text-sm text-muted-foreground">Duração Média</p>
-          </Card>
-
-          <Card className="p-4 sm:p-6 bg-card border-border hover:shadow-glow transition-shadow">
-            <div className="flex items-start justify-between mb-3 sm:mb-4">
-              <div className="p-2 sm:p-3 bg-accent/10 rounded-lg">
-                <Trophy className="text-accent" size={20} />
-              </div>
-            </div>
-            <h3 className="text-xl sm:text-2xl font-bold mb-1">{stats.avgScore.toFixed(1)}</h3>
-            <p className="text-xs sm:text-sm text-muted-foreground">Pontuação Geral</p>
-          </Card>
-
-          <Card className="p-4 sm:p-6 bg-card border-border hover:shadow-glow transition-shadow">
-            <div className="flex items-start justify-between mb-3 sm:mb-4">
-              <div className="p-2 sm:p-3 bg-primary/10 rounded-lg">
-                <TrendingUp className="text-primary" size={20} />
-              </div>
-            </div>
-            <h3 className="text-xl sm:text-2xl font-bold mb-1 text-primary">+{stats.evolution}%</h3>
-            <p className="text-xs sm:text-sm text-muted-foreground">Taxa de Evolução</p>
-          </Card>
+        {/* KPI Cards */}
+        <div className="mb-6 sm:mb-8">
+          <KPICards
+            totalSessions={stats.totalSessions}
+            totalTime={stats.totalTime}
+            avgScore={stats.avgScore}
+            scoreTrend={stats.scoreTrend}
+            bestScore={stats.bestScore}
+            worstScore={stats.worstScore}
+          />
         </div>
 
         {/* SPIN Evolution Chart */}

@@ -6,6 +6,103 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Função para calcular métricas vocais
+function calculateVoiceMetrics(messages: any[]) {
+  const userMessages = messages.filter(m => m.role === 'user');
+  const clientMessages = messages.filter(m => m.role === 'assistant');
+  
+  const totalUserWords = userMessages.reduce((sum, m) => sum + m.content.split(/\s+/).length, 0);
+  const totalClientWords = clientMessages.reduce((sum, m) => sum + m.content.split(/\s+/).length, 0);
+  
+  // Talk/Listen Ratio
+  const talkListenRatio = totalClientWords > 0 ? totalUserWords / totalClientWords : 0;
+  
+  // Filler words (aproximado)
+  const fillerWords = ['ééé', 'hmm', 'ahh', 'tipo', 'né', 'então', 'bem', 'assim'];
+  const fillerCount = userMessages.reduce((sum, m) => {
+    const content = m.content.toLowerCase();
+    return sum + fillerWords.reduce((count, filler) => 
+      count + (content.match(new RegExp(filler, 'g')) || []).length, 0
+    );
+  }, 0);
+  const totalMinutes = userMessages.length > 0 ? userMessages.length / 2 : 1; // Aproximação
+  const fillerWordsPerMinute = fillerCount / totalMinutes;
+  
+  // Speech speed (words per minute)
+  const speechSpeedWpm = totalMinutes > 0 ? totalUserWords / totalMinutes : 0;
+  
+  // Longest monologue
+  const longestMonologue = userMessages.reduce((max, m) => {
+    const wordCount = m.content.split(/\s+/).length;
+    return wordCount > max ? wordCount : max;
+  }, 0);
+  const longestMonologueSeconds = Math.round((longestMonologue / 150) * 60); // Assumindo 150 wpm
+  
+  return {
+    talk_listen_ratio: parseFloat(talkListenRatio.toFixed(2)),
+    filler_words_per_minute: parseFloat(fillerWordsPerMinute.toFixed(2)),
+    speech_speed_wpm: Math.round(speechSpeedWpm),
+    longest_monologue_seconds: longestMonologueSeconds
+  };
+}
+
+// Função para gerar insights com IA
+async function generateInsights(evaluations: any[], conversation: string, overallScore: number, apiKey: string) {
+  const insightPrompt = `Com base na análise de competências SPIN Selling a seguir, gere insights estruturados:
+
+SCORE GERAL: ${overallScore}/100
+
+COMPETÊNCIAS AVALIADAS:
+${evaluations.map(e => `- ${e.competency}: ${e.score}/100\n  ${e.feedback}`).join('\n\n')}
+
+Gere um JSON com a seguinte estrutura:
+{
+  "executive_summary": "Resumo executivo de 2-3 frases sobre o desempenho geral",
+  "highlights": ["3-5 destaques positivos específicos da sessão"],
+  "recommendations": ["3-5 recomendações acionáveis para melhoria"]
+}
+
+Seja específico, direto e focado em automação com IA.`;
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: 'Você é um especialista em análise de vendas B2B. Retorne apenas JSON válido.' },
+        { role: 'user', content: insightPrompt }
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    console.error('Failed to generate insights, using defaults');
+    return {
+      executive_summary: 'Sessão concluída com sucesso.',
+      highlights: ['Participação ativa na conversa'],
+      recommendations: ['Continue praticando suas habilidades SPIN']
+    };
+  }
+
+  const aiResponse = await response.json();
+  const content = aiResponse.choices[0].message.content;
+  
+  try {
+    const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
+    return JSON.parse(cleanContent);
+  } catch {
+    return {
+      executive_summary: 'Sessão concluída com sucesso.',
+      highlights: ['Participação ativa na conversa'],
+      recommendations: ['Continue praticando suas habilidades SPIN']
+    };
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -230,10 +327,22 @@ ${conversation}`;
       evaluations.reduce((sum: number, comp: any) => sum + comp.score, 0) / evaluations.length
     );
 
-    // Atualizar sessão com overall_score
+    // Calcular métricas vocais
+    const voiceMetrics = calculateVoiceMetrics(messages);
+
+    // Gerar insights com IA
+    const insights = await generateInsights(evaluations, conversation, overallScore, LOVABLE_API_KEY);
+
+    // Atualizar sessão com overall_score, voice_metrics e insights
     const { error: updateError } = await supabase
       .from('roleplay_sessions')
-      .update({ overall_score: overallScore })
+      .update({ 
+        overall_score: overallScore,
+        voice_metrics: voiceMetrics,
+        highlights: insights.highlights,
+        recommendations: insights.recommendations,
+        executive_summary: insights.executive_summary
+      })
       .eq('id', sessionId);
 
     if (updateError) {

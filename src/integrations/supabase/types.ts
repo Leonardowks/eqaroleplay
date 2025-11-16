@@ -137,38 +137,50 @@ export type Database = {
         Row: {
           completed_at: string | null
           duration_seconds: number | null
+          executive_summary: string | null
+          highlights: string[] | null
           id: string
           meeting_type: string
           method: string
           overall_score: number | null
           persona_id: string
+          recommendations: string[] | null
           started_at: string | null
           status: string | null
           user_id: string
+          voice_metrics: Json | null
         }
         Insert: {
           completed_at?: string | null
           duration_seconds?: number | null
+          executive_summary?: string | null
+          highlights?: string[] | null
           id?: string
           meeting_type: string
           method: string
           overall_score?: number | null
           persona_id: string
+          recommendations?: string[] | null
           started_at?: string | null
           status?: string | null
           user_id: string
+          voice_metrics?: Json | null
         }
         Update: {
           completed_at?: string | null
           duration_seconds?: number | null
+          executive_summary?: string | null
+          highlights?: string[] | null
           id?: string
           meeting_type?: string
           method?: string
           overall_score?: number | null
           persona_id?: string
+          recommendations?: string[] | null
           started_at?: string | null
           status?: string | null
           user_id?: string
+          voice_metrics?: Json | null
         }
         Relationships: [
           {
