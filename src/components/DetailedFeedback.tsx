@@ -16,6 +16,7 @@ interface Competency {
   score: number;
   sub_scores?: Record<string, number>;
   sub_scores_feedback?: Record<string, string>;
+  criterion_approvals?: Record<string, 'approved' | 'rejected' | 'neutral'>;
   feedback: string;
   ai_suggestions?: string[];
   spin_category?: string;
@@ -142,8 +143,10 @@ const DetailedFeedback = ({
             {comp.sub_scores && Object.keys(comp.sub_scores).length > 0 && (
               <div className="mb-6">
                 <SubScoresDetail 
+                  competencyName={comp.competency}
                   subScores={comp.sub_scores}
                   subScoresFeedback={comp.sub_scores_feedback}
+                  criterionApprovals={comp.criterion_approvals}
                 />
               </div>
             )}
