@@ -119,7 +119,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Buscar sessão e mensagens
+    // Buscar sessão, mensagens e critérios de avaliação
     const { data: session, error: sessionError } = await supabase
       .from('roleplay_sessions')
       .select(`
@@ -138,6 +138,23 @@ serve(async (req) => {
       .single();
 
     if (sessionError) throw sessionError;
+
+    // Buscar critérios detalhados da nova tabela
+    const { data: criteria, error: criteriaError } = await supabase
+      .from('competency_criteria')
+      .select('*')
+      .order('competency_name', { ascending: true });
+
+    if (criteriaError) {
+      console.error('Error fetching criteria:', criteriaError);
+    }
+
+    // Organizar critérios por competência
+    const criteriaByCompetency = (criteria || []).reduce((acc: any, c: any) => {
+      if (!acc[c.competency_name]) acc[c.competency_name] = [];
+      acc[c.competency_name].push(c);
+      return acc;
+    }, {});
 
     const { data: messages, error: messagesError } = await supabase
       .from('session_messages')
@@ -168,7 +185,28 @@ serve(async (req) => {
       negotiation: 'Negociação'
     };
 
-    // System prompt focado em SPIN Selling + Automação IA
+    // Gerar seções de critérios detalhados para o prompt
+    const competencyNames = [
+      'Abertura',
+      'Perguntas de Situação', 
+      'Perguntas de Problema',
+      'Perguntas de Implicação',
+      'Perguntas de Necessidade-Benefício',
+      'Tratamento de Objeções',
+      'Fechamento'
+    ];
+
+    const criteriaPromptSections = competencyNames.map(compName => {
+      const compCriteria = criteriaByCompetency[compName] || [];
+      if (compCriteria.length === 0) return '';
+      
+      return `\n${compName.toUpperCase()}:
+${compCriteria.map((c: any, idx: number) => 
+  `   ${idx + 1}. ${c.criterion_name} (${c.criterion_key}): ${c.evaluation_guide}`
+).join('\n')}`;
+    }).filter(Boolean).join('\n');
+
+    // System prompt focado em SPIN Selling + Automação IA com critérios detalhados
     const systemPrompt = `Você é um avaliador especializado em SPIN Selling para vendas B2B de soluções de AUTOMAÇÃO COM IA.
 
 CONTEXTO:
@@ -176,6 +214,9 @@ CONTEXTO:
 - Persona: ${persona.name} (${persona.difficulty})
 - Setor: ${persona.sector}
 - Foco: Vendas de soluções de automação inteligente
+
+CRITÉRIOS DETALHADOS DE AVALIAÇÃO:
+${criteriaPromptSections}
 
 Analise a conversa e avalie as 7 competências seguindo critérios SPIN:
 
@@ -232,54 +273,44 @@ REGRAS DE AVALIAÇÃO:
 Retorne um JSON array com TODAS as 7 competências EXATAMENTE neste formato:
 [
   {
-    "competency": "Abertura e Rapport",
+    "competency": "Abertura",
     "score": 85,
     "sub_scores": {
-      "conexao_inicial": 90,
-      "credibilidade": 85,
-      "agenda_clara": 80,
-      "value_proposition": 85
+      "credibilidade": 90,
+      "gancho": 85,
+      "alinhamento": 80
     },
     "sub_scores_feedback": {
-      "conexao_inicial": "Excelente empatia demonstrada logo no início",
-      "credibilidade": "Mencionou case relevante, mas poderia detalhar mais",
-      "agenda_clara": "Agenda foi definida, mas tardiamente na conversa",
-      "value_proposition": "Value proposition clara e focada no cliente"
+      "credibilidade": "Excelente conhecimento técnico demonstrado",
+      "gancho": "Usou LGPD como gancho efetivo",
+      "alinhamento": "Expectativas bem definidas"
     },
-    "feedback": "Excelente abertura! Estabeleceu rapport forte e mencionou case de automação similar. Sugestão: definir agenda mais cedo ('Temos 30 minutos, vamos focar em X, ok?').",
+    "criterion_approvals": {
+      "credibilidade": "approved",
+      "gancho": "approved",
+      "alinhamento": "rejected"
+    },
+    "feedback": "Excelente abertura! Estabeleceu credibilidade técnica e usou LGPD como gancho relevante. Alinhamento poderia ser mais detalhado.",
     "ai_suggestions": [
-      "Use técnica do espelho: repita últimas palavras do cliente",
-      "Mencione case específico do setor dele logo na abertura",
-      "Pergunte: 'O que seria um resultado ideal para você hoje?'"
+      "Mencione case específico do setor logo na abertura",
+      "Defina agenda: 'Vamos focar em X nos próximos 30 min, ok?'",
+      "Use estatística de impacto: '80% das empresas sofrem com...'"
     ],
     "spin_category": "opening"
-  },
-  {
-    "competency": "Descoberta de Situação",
-    "score": 75,
-    "sub_scores": {
-      "mapeamento_processos": 80,
-      "volume_escala": 70,
-      "contexto_tecnologico": 75,
-      "stakeholders": 75
-    },
-    "sub_scores_feedback": {
-      "mapeamento_processos": "Bom mapeamento inicial dos processos atuais",
-      "volume_escala": "Poderia quantificar melhor tempo e volume",
-      "contexto_tecnologico": "Explorou ferramentas mas faltou profundidade",
-      "stakeholders": "Identificou decisores mas não mapeou influenciadores"
-    },
-    "feedback": "Boa descoberta de situação com perguntas relevantes sobre processos atuais.",
-    "ai_suggestions": [
-      "Pergunte: 'Quantas horas por semana sua equipe dedica a isso?'",
-      "Explore: 'Quais sistemas vocês usam hoje e como eles se integram?'",
-      "Mapeie: 'Além de você, quem mais precisa aprovar essa decisão?'"
-    ],
-    "spin_category": "situation"
   }
 ]
 
-IMPORTANTE: Gere TODAS as 7 competências com sub_scores e sub_scores_feedback completos.
+REGRAS PARA criterion_approvals:
+- "approved": Critério foi executado com excelência (score >= 70)
+- "rejected": Critério não foi bem executado ou ausente (score < 50)  
+- "neutral": Critério parcialmente executado (score 50-69)
+
+Para cada criterion_key da competência, retorne o status de aprovação baseado na análise.
+
+IMPORTANTE: 
+- Gere TODAS as 7 competências com sub_scores, sub_scores_feedback E criterion_approvals completos
+- Use os criterion_keys exatos definidos nos critérios detalhados acima
+- Seja consistente entre sub_scores e criterion_approvals (mesmos keys)
 
 CONVERSA:
 ${conversation}`;
@@ -355,6 +386,7 @@ ${conversation}`;
       ) : null,
       sub_scores_feedback: comp.sub_scores_feedback || null,
       ai_suggestions: comp.ai_suggestions || null,
+      criterion_approvals: comp.criterion_approvals || null, // Novo campo
     }));
 
     const { error: insertError } = await supabase

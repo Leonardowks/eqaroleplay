@@ -1,14 +1,70 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
+import { CheckCircle2, AlertCircle, XCircle, Info } from 'lucide-react';
+import CriterionStatusBadge from './CriterionStatusBadge';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
-interface SubScoresDetailProps {
-  subScores: Record<string, number>;
-  subScoresFeedback?: Record<string, string>;
+interface CriterionDetail {
+  criterion_key: string;
+  criterion_name: string;
+  criterion_description: string;
+  evaluation_guide: string;
 }
 
-const SubScoresDetail = ({ subScores, subScoresFeedback }: SubScoresDetailProps) => {
+interface SubScoresDetailProps {
+  competencyName: string;
+  subScores: Record<string, number>;
+  subScoresFeedback?: Record<string, string>;
+  criterionApprovals?: Record<string, 'approved' | 'rejected' | 'neutral'>;
+}
+
+const SubScoresDetail = ({ 
+  competencyName,
+  subScores, 
+  subScoresFeedback,
+  criterionApprovals 
+}: SubScoresDetailProps) => {
+  const [criteriaDetails, setCriteriaDetails] = useState<Record<string, CriterionDetail>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadCriteriaDetails = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('competency_criteria')
+          .select('*')
+          .eq('competency_name', competencyName);
+
+        if (error) throw error;
+
+        const detailsMap = (data || []).reduce((acc: Record<string, CriterionDetail>, item: any) => {
+          acc[item.criterion_key] = {
+            criterion_key: item.criterion_key,
+            criterion_name: item.criterion_name,
+            criterion_description: item.criterion_description,
+            evaluation_guide: item.evaluation_guide
+          };
+          return acc;
+        }, {});
+
+        setCriteriaDetails(detailsMap);
+      } catch (error) {
+        console.error('Error loading criteria details:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCriteriaDetails();
+  }, [competencyName]);
+
   const formatCriterionName = (key: string) => {
+    // Usar nome oficial do critério se disponível
+    if (criteriaDetails[key]?.criterion_name) {
+      return criteriaDetails[key].criterion_name;
+    }
+    
     return key
       .replace(/_/g, ' ')
       .split(' ')
@@ -43,6 +99,23 @@ const SubScoresDetail = ({ subScores, subScoresFeedback }: SubScoresDetailProps)
     return { label: 'Precisa Melhorar', className: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20' };
   };
 
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+          Análise Detalhada por Critério
+        </h4>
+        <div className="grid gap-4">
+          {Object.keys(subScores).map(key => (
+            <Card key={key} className="p-4 bg-muted/20 border-border/50 animate-pulse">
+              <div className="h-20 bg-muted rounded" />
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
@@ -52,6 +125,8 @@ const SubScoresDetail = ({ subScores, subScoresFeedback }: SubScoresDetailProps)
         {Object.entries(subScores).map(([key, score]) => {
           const badge = getScoreBadge(score);
           const feedback = subScoresFeedback?.[key];
+          const approval = criterionApprovals?.[key];
+          const detail = criteriaDetails[key];
           
           return (
             <Card key={key} className="p-4 bg-muted/20 border-border/50">
@@ -59,11 +134,24 @@ const SubScoresDetail = ({ subScores, subScoresFeedback }: SubScoresDetailProps)
                 <div className="flex items-start gap-3 flex-1">
                   {getScoreIcon(score)}
                   <div className="flex-1">
-                    <h5 className="font-semibold text-sm mb-1">
-                      {formatCriterionName(key)}
-                    </h5>
+                    <div className="flex items-center gap-2 mb-2">
+                      <h5 className="font-semibold text-sm">
+                        {formatCriterionName(key)}
+                      </h5>
+                      {approval && <CriterionStatusBadge status={approval} />}
+                    </div>
+                    
+                    {detail?.criterion_description && (
+                      <div className="flex items-start gap-1.5 mb-2 p-2 bg-accent/30 rounded-md">
+                        <Info className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          {detail.criterion_description}
+                        </p>
+                      </div>
+                    )}
+                    
                     {feedback && (
-                      <p className="text-xs text-muted-foreground leading-relaxed">
+                      <p className="text-xs text-foreground/80 leading-relaxed font-medium">
                         {feedback}
                       </p>
                     )}

@@ -14,11 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      competency_criteria: {
+        Row: {
+          competency_name: string
+          created_at: string | null
+          criterion_description: string
+          criterion_key: string
+          criterion_name: string
+          evaluation_guide: string | null
+          id: string
+          weight: number | null
+        }
+        Insert: {
+          competency_name: string
+          created_at?: string | null
+          criterion_description: string
+          criterion_key: string
+          criterion_name: string
+          evaluation_guide?: string | null
+          id?: string
+          weight?: number | null
+        }
+        Update: {
+          competency_name?: string
+          created_at?: string | null
+          criterion_description?: string
+          criterion_key?: string
+          criterion_name?: string
+          evaluation_guide?: string | null
+          id?: string
+          weight?: number | null
+        }
+        Relationships: []
+      }
       competency_scores: {
         Row: {
           ai_suggestions: Json | null
           competency_name: string
           created_at: string | null
+          criterion_approvals: Json | null
           feedback: string | null
           id: string
           score: number
@@ -31,6 +65,7 @@ export type Database = {
           ai_suggestions?: Json | null
           competency_name: string
           created_at?: string | null
+          criterion_approvals?: Json | null
           feedback?: string | null
           id?: string
           score: number
@@ -43,6 +78,7 @@ export type Database = {
           ai_suggestions?: Json | null
           competency_name?: string
           created_at?: string | null
+          criterion_approvals?: Json | null
           feedback?: string | null
           id?: string
           score?: number
