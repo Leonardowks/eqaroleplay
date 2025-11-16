@@ -365,7 +365,21 @@ const VoiceChat = () => {
       
       wsRef.current = new WebSocket(wsUrl);
 
+      // Connection timeout - 15s to establish connection
+      const connectionTimeout = setTimeout(() => {
+        if (wsRef.current && wsRef.current.readyState !== WebSocket.OPEN) {
+          console.error('[WebSocket] Connection timeout after 15s');
+          toast({
+            title: "Erro de Conexão",
+            description: "Tempo esgotado ao conectar ao sistema de voz",
+            variant: "destructive",
+          });
+          wsRef.current.close();
+        }
+      }, 15000);
+
       wsRef.current.onopen = () => {
+        clearTimeout(connectionTimeout);
         console.log("WebSocket connected");
         setIsConnected(true);
         setConnectionAttempts(0); // Reset on successful connection
