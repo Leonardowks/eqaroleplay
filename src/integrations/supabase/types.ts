@@ -16,28 +16,37 @@ export type Database = {
     Tables: {
       competency_scores: {
         Row: {
+          ai_suggestions: Json | null
           competency_name: string
           created_at: string | null
           feedback: string | null
           id: string
           score: number
           session_id: string
+          spin_category: string | null
+          sub_scores: Json | null
         }
         Insert: {
+          ai_suggestions?: Json | null
           competency_name: string
           created_at?: string | null
           feedback?: string | null
           id?: string
           score: number
           session_id: string
+          spin_category?: string | null
+          sub_scores?: Json | null
         }
         Update: {
+          ai_suggestions?: Json | null
           competency_name?: string
           created_at?: string | null
           feedback?: string | null
           id?: string
           score?: number
           session_id?: string
+          spin_category?: string | null
+          sub_scores?: Json | null
         }
         Relationships: [
           {
@@ -51,37 +60,49 @@ export type Database = {
       }
       personas: {
         Row: {
+          automation_context: Json | null
           avatar_url: string | null
+          buying_signals: Json | null
           company: string
           created_at: string | null
           description: string | null
           difficulty: string
           id: string
           name: string
+          objection_patterns: Json | null
+          pain_points: Json | null
           personality_traits: Json | null
           role: string
           sector: string
         }
         Insert: {
+          automation_context?: Json | null
           avatar_url?: string | null
+          buying_signals?: Json | null
           company: string
           created_at?: string | null
           description?: string | null
           difficulty: string
           id?: string
           name: string
+          objection_patterns?: Json | null
+          pain_points?: Json | null
           personality_traits?: Json | null
           role: string
           sector: string
         }
         Update: {
+          automation_context?: Json | null
           avatar_url?: string | null
+          buying_signals?: Json | null
           company?: string
           created_at?: string | null
           description?: string | null
           difficulty?: string
           id?: string
           name?: string
+          objection_patterns?: Json | null
+          pain_points?: Json | null
           personality_traits?: Json | null
           role?: string
           sector?: string
@@ -191,9 +212,98 @@ export type Database = {
           },
         ]
       }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          id: string
+          unlocked_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          achievement_id: string
+          id?: string
+          unlocked_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          achievement_id?: string
+          id?: string
+          unlocked_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "advanced_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_achievements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_insights: {
+        Row: {
+          analysis: Json
+          generated_at: string | null
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          analysis: Json
+          generated_at?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          analysis?: Json
+          generated_at?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_insights_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "advanced_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_insights_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
-      [_ in never]: never
+      advanced_rankings: {
+        Row: {
+          achievements_count: number | null
+          avatar_url: string | null
+          avg_implication: number | null
+          avg_need_payoff: number | null
+          avg_problem: number | null
+          avg_score: number | null
+          avg_situation: number | null
+          best_score: number | null
+          full_name: string | null
+          id: string | null
+          last_activity: string | null
+          rank: number | null
+          total_sessions: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       cleanup_abandoned_sessions: { Args: never; Returns: undefined }
