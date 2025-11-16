@@ -291,7 +291,8 @@ ${conversation}`;
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: systemPrompt }
+          { role: 'system', content: 'Você é um avaliador especializado em SPIN Selling para vendas B2B de soluções de AUTOMAÇÃO COM IA. Retorne APENAS o array JSON com as 7 competências avaliadas, sem texto adicional ou explicações.' },
+          { role: 'user', content: systemPrompt }
         ],
       }),
     });
