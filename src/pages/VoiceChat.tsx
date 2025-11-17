@@ -64,6 +64,7 @@ const VoiceChat = () => {
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [showPerformanceTest, setShowPerformanceTest] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [currentAudioProvider, setCurrentAudioProvider] = useState<'openai' | 'elevenlabs'>('openai');
 
   const wsRef = useRef<WebSocket | null>(null);
   const recorderRef = useRef<AudioRecorder | null>(null);
@@ -375,6 +376,68 @@ const VoiceChat = () => {
     }
   };
 
+  // Reproduzir áudio do ElevenLabs (formato MP3)
+  const playElevenLabsAudio = useCallback(async (base64Audio: string, transcript: string) => {
+    try {
+      console.log('🎵 Playing ElevenLabs audio (MP3 format)');
+      setIsSpeaking(true);
+      
+      // Converter base64 para Blob
+      const binaryString = atob(base64Audio);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      const audioBlob = new Blob([bytes], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      
+      // Handlers
+      audio.onplay = () => {
+        console.log('▶️ ElevenLabs audio started');
+        setIsSpeaking(true);
+        triggerHaptic('medium');
+      };
+      
+      audio.onended = () => {
+        console.log('⏹️ ElevenLabs audio ended');
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+        triggerHaptic('light');
+      };
+      
+      audio.onerror = (e) => {
+        console.error('❌ Error playing ElevenLabs audio:', e);
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+        toast({
+          title: "Erro de Áudio",
+          description: "Falha ao reproduzir resposta de voz",
+          variant: "destructive",
+        });
+      };
+      
+      // Adicionar transcrição às mensagens
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: transcript,
+        timestamp: new Date()
+      }]);
+      
+      await audio.play();
+      
+    } catch (error) {
+      console.error('❌ Error in playElevenLabsAudio:', error);
+      setIsSpeaking(false);
+      toast({
+        title: "Erro de Áudio",
+        description: "Não foi possível reproduzir o áudio",
+        variant: "destructive",
+      });
+    }
+  }, [toast, triggerHaptic]);
+
   const connectWebSocket = async (sessionId: string, personaId: string, meetingType: string) => {
     try {
       // ✅ Only close if necessary
@@ -517,6 +580,15 @@ const VoiceChat = () => {
         // Update last activity timestamp on any message
         lastActivityRef.current = Date.now();
 
+        // ====== NOVO: DETECTAR ÁUDIO DO ELEVENLABS ======
+        if (data.type === 'elevenlabs_audio') {
+          console.log('🎙️ Received ElevenLabs audio');
+          setCurrentAudioProvider('elevenlabs');
+          await playElevenLabsAudio(data.audio, data.transcript);
+          return; // Processar apenas isso, não continuar com lógica OpenAI
+        }
+        // ====== FIM DO NOVO ======
+
         if (data.type === "response.audio.delta") {
           // Add natural delay before first audio chunk for more natural feel
           if (!isSpeaking) {
@@ -526,6 +598,7 @@ const VoiceChat = () => {
             triggerHaptic('light'); // Subtle haptic when AI starts speaking
           }
           
+          setCurrentAudioProvider('openai'); // Definir provider como OpenAI
           setIsSpeaking(true);
           const binaryString = atob(data.delta);
           const bytes = new Uint8Array(binaryString.length);
@@ -928,6 +1001,12 @@ const VoiceChat = () => {
                 {isConnected ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
                 {isConnected ? "Conectado" : connectionAttempts > 0 ? `Reconectando... (${connectionAttempts}/3)` : "Desconectado"}
               </Badge>
+              {/* Badge indicando provider de áudio (apenas em dev) */}
+              {import.meta.env.DEV && currentAudioProvider && (
+                <Badge variant="outline" className="gap-2">
+                  {currentAudioProvider === 'elevenlabs' ? '🎙️ ElevenLabs' : '🤖 OpenAI'}
+                </Badge>
+              )}
               <div className="flex items-center gap-2">
                 <Clock className="h-5 w-5 text-primary" />
                 <span className="font-mono text-xl font-bold">{formatDuration(duration)}</span>
