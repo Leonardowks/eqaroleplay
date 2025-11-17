@@ -299,6 +299,47 @@ export type Database = {
           },
         ]
       }
+      session_quality_metrics: {
+        Row: {
+          audio_system_used: string | null
+          avg_latency_ms: number | null
+          buffer_health_avg: string | null
+          created_at: string
+          id: string
+          session_id: string
+          total_errors: number | null
+          total_gaps: number | null
+        }
+        Insert: {
+          audio_system_used?: string | null
+          avg_latency_ms?: number | null
+          buffer_health_avg?: string | null
+          created_at?: string
+          id?: string
+          session_id: string
+          total_errors?: number | null
+          total_gaps?: number | null
+        }
+        Update: {
+          audio_system_used?: string | null
+          avg_latency_ms?: number | null
+          buffer_health_avg?: string | null
+          created_at?: string
+          id?: string
+          session_id?: string
+          total_errors?: number | null
+          total_gaps?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_quality_metrics_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "roleplay_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_recommendations: {
         Row: {
           action_items: Json
