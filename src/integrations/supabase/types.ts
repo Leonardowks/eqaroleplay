@@ -142,6 +142,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           difficulty: string
+          elevenlabs_voice_id: string | null
           id: string
           name: string
           objection_patterns: Json | null
@@ -149,6 +150,7 @@ export type Database = {
           personality_traits: Json | null
           role: string
           sector: string
+          voice_provider: string | null
         }
         Insert: {
           automation_context?: Json | null
@@ -158,6 +160,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           difficulty: string
+          elevenlabs_voice_id?: string | null
           id?: string
           name: string
           objection_patterns?: Json | null
@@ -165,6 +168,7 @@ export type Database = {
           personality_traits?: Json | null
           role: string
           sector: string
+          voice_provider?: string | null
         }
         Update: {
           automation_context?: Json | null
@@ -174,6 +178,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           difficulty?: string
+          elevenlabs_voice_id?: string | null
           id?: string
           name?: string
           objection_patterns?: Json | null
@@ -181,6 +186,7 @@ export type Database = {
           personality_traits?: Json | null
           role?: string
           sector?: string
+          voice_provider?: string | null
         }
         Relationships: []
       }
