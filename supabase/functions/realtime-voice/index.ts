@@ -257,6 +257,9 @@ Mantenha o papel consistente durante toda a conversa.`;
     }
   };
 
+  // Flag para controlar bloqueio de áudio OpenAI (quando usar ElevenLabs)
+  let shouldBlockOpenAIAudio = false;
+
   openAISocket.onmessage = async (event) => {
     try {
       let data;
@@ -620,14 +623,35 @@ Mantenha o papel consistente durante toda a conversa.`;
         // Already handled above, this catches duplicate error events
       } else if (data.type === "response.created") {
         console.log(`[${sessionId}] 🤖 AI response started`);
+        
+        // Ativar bloqueio de áudio se persona usa ElevenLabs
+        if (persona.voice_provider === "elevenlabs" && persona.elevenlabs_voice_id) {
+          shouldBlockOpenAIAudio = true;
+          console.log(`[${sessionId}] 🚫 Blocking OpenAI audio chunks (will use ElevenLabs)`);
+        } else {
+          shouldBlockOpenAIAudio = false;
+        }
       } else if (data.type === "response.done") {
         console.log(`[${sessionId}] ✅ AI response finished`);
+        
+        // Resetar flag para próxima resposta
+        shouldBlockOpenAIAudio = false;
       }
 
       // Forward to client (with error handling)
       if (clientSocket && clientSocket.readyState === WebSocket.OPEN) {
         try {
-          clientSocket.send(event.data);
+          // Bloquear eventos de áudio OpenAI se vamos usar ElevenLabs
+          const shouldBlock = shouldBlockOpenAIAudio && (
+            data.type === "response.audio.delta" || 
+            data.type === "response.audio.done"
+          );
+          
+          if (shouldBlock) {
+            console.log(`[${sessionId}] 🚫 Blocked ${data.type} (using ElevenLabs instead)`);
+          } else {
+            clientSocket.send(event.data);
+          }
         } catch (error) {
           console.error(`[${sessionId}] ⚠️ Failed to forward message to client:`, error);
           // Continue anyway - don't crash the system
