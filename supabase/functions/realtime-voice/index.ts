@@ -42,7 +42,7 @@ serve(async (req) => {
   // Fetch persona
   const { data: persona, error: personaError } = await supabase
     .from("personas")
-    .select("*")
+    .select("*, voice_provider, elevenlabs_voice_id")
     .eq("id", personaId)
     .single();
 
@@ -157,6 +157,56 @@ Mantenha o papel consistente durante toda a conversa.`;
     errors: 0,
     clientMessages: 0
   };
+
+  // Helper function to generate audio with ElevenLabs
+  async function generateElevenLabsAudio(
+    text: string, 
+    voiceId: string
+  ): Promise<ArrayBuffer> {
+    const elevenLabsKey = Deno.env.get("ELEVENLABS_API_KEY");
+    
+    if (!elevenLabsKey) {
+      throw new Error("ELEVENLABS_API_KEY not configured");
+    }
+
+    console.log(`[${sessionId}] 🎙️ Generating audio with ElevenLabs (voice: ${voiceId})`);
+    
+    const startTime = Date.now();
+    
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+      {
+        method: "POST",
+        headers: {
+          "xi-api-key": elevenLabsKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: text,
+          model_id: "eleven_multilingual_v2", // Suporta PT-BR
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.75,
+            style: 0.0,
+            use_speaker_boost: true
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[${sessionId}] ❌ ElevenLabs API Error:`, response.status, errorText);
+      throw new Error(`ElevenLabs API failed: ${response.status}`);
+    }
+
+    const audioBuffer = await response.arrayBuffer();
+    const duration = Date.now() - startTime;
+    
+    console.log(`[${sessionId}] ✅ ElevenLabs audio generated: ${audioBuffer.byteLength} bytes in ${duration}ms`);
+    
+    return audioBuffer;
+  }
 
   console.log(`[${getTimestamp()}] 🔌 Session ${sessionId} - Client connecting to voice chat`);
 
@@ -401,7 +451,116 @@ Mantenha o papel consistente durante toda a conversa.`;
       } else if (data.type === "response.audio_transcript.done") {
         console.log(`[${sessionId}] 📝 Full AI transcript: "${data.transcript}"`);
         
-        // Save assistant message to database with retry logic
+        // ====== NOVA LÓGICA PARA ELEVENLABS ======
+        // Se persona usa ElevenLabs, gerar áudio customizado
+        if (persona.voice_provider === "elevenlabs" && persona.elevenlabs_voice_id && data.transcript) {
+          try {
+            console.log(`[${sessionId}] 🔄 Intercepting OpenAI audio, using ElevenLabs instead`);
+            
+            // Gerar áudio com ElevenLabs
+            const audioBuffer = await generateElevenLabsAudio(
+              data.transcript,
+              persona.elevenlabs_voice_id
+            );
+            
+            // Converter para base64
+            const uint8Array = new Uint8Array(audioBuffer);
+            let binary = '';
+            const chunkSize = 0x8000;
+            
+            for (let i = 0; i < uint8Array.length; i += chunkSize) {
+              const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+              binary += String.fromCharCode(...chunk);
+            }
+            
+            const base64Audio = btoa(binary);
+            
+            // Enviar para cliente com flag especial
+            if (clientSocket && clientSocket.readyState === WebSocket.OPEN) {
+              clientSocket.send(JSON.stringify({
+                type: "elevenlabs_audio",
+                audio: base64Audio,
+                transcript: data.transcript,
+                provider: "elevenlabs",
+                format: "mp3"
+              }));
+              
+              console.log(`[${sessionId}] ✅ Sent ElevenLabs audio to client (${audioBuffer.byteLength} bytes)`);
+            }
+            
+            // Ainda enviar transcrição para cliente
+            if (clientSocket && clientSocket.readyState === WebSocket.OPEN) {
+              clientSocket.send(JSON.stringify({
+                type: "response.audio_transcript.done",
+                transcript: data.transcript
+              }));
+            }
+            
+            // Salvar mensagem no banco (mesmo código de antes)
+            const maxRetries = 3;
+            let retryCount = 0;
+            let saved = false;
+
+            while (retryCount < maxRetries && !saved) {
+              try {
+                console.log(`[${sessionId}] 💾 Saving assistant message (attempt ${retryCount + 1}/${maxRetries})...`);
+                
+                const { error: msgError } = await supabase.from("session_messages").insert({
+                  session_id: sessionId,
+                  role: "assistant",
+                  content: data.transcript,
+                });
+
+                if (msgError) {
+                  console.error(`[${sessionId}] ❌ Error saving assistant message:`, {
+                    attempt: retryCount + 1,
+                    maxRetries,
+                    error: msgError,
+                    sessionId,
+                    transcript: data.transcript.substring(0, 50) + '...'
+                  });
+                  retryCount++;
+                  if (retryCount < maxRetries) {
+                    await new Promise(resolve => setTimeout(resolve, 300 * retryCount));
+                  }
+                } else {
+                  console.log(`[${sessionId}] ✅ Assistant message saved:`, {
+                    length: data.transcript.length,
+                    preview: data.transcript.substring(0, 50) + '...'
+                  });
+                  saved = true;
+                }
+              } catch (err) {
+                console.error(`[${sessionId}] ❌ Exception saving assistant message:`, {
+                  attempt: retryCount + 1,
+                  error: err,
+                  sessionId
+                });
+                retryCount++;
+                if (retryCount < maxRetries) {
+                  await new Promise(resolve => setTimeout(resolve, 300 * retryCount));
+                }
+              }
+            }
+
+            if (!saved) {
+              console.error(`[${sessionId}] 🚨 CRITICAL: Failed to save assistant message after ${maxRetries} attempts`, {
+                transcript: data.transcript,
+                sessionId
+              });
+            }
+            
+            // Retornar para não processar áudio OpenAI
+            return;
+            
+          } catch (error) {
+            console.error(`[${sessionId}] ❌ ElevenLabs generation failed, falling back to OpenAI:`, error);
+            // Em caso de erro, continuar com OpenAI (fallback)
+          }
+        }
+        // ====== FIM DA NOVA LÓGICA ======
+        
+        // Save assistant message to database with retry logic (fallback OpenAI)
         if (data.transcript) {
           const maxRetries = 3;
           let retryCount = 0;
