@@ -143,6 +143,23 @@ Mantenha o papel consistente durante toda a conversa.`;
   let sessionConfigured = false;
   let clientSocket: WebSocket;
 
+  // Helper function to get timestamp with milliseconds
+  const startTime = new Date();
+  const getTimestamp = () => {
+    const now = new Date();
+    return now.toTimeString().split(' ')[0] + '.' + now.getMilliseconds().toString().padStart(3, '0');
+  };
+
+  // Event counters for session summary
+  const eventCounts = {
+    audioDeltas: 0,
+    transcripts: 0,
+    errors: 0,
+    clientMessages: 0
+  };
+
+  console.log(`[${getTimestamp()}] 🔌 Session ${sessionId} - Client connecting to voice chat`);
+
   // Connection timeout - increased to 30s for more stability
   const connectionTimeout = setTimeout(() => {
     if (!isOpenAIReady) {
@@ -166,8 +183,8 @@ Mantenha o papel consistente durante toda a conversa.`;
 
   // OpenAI socket handlers
   openAISocket.onopen = () => {
-    console.log(`[${sessionId}] ✅ OpenAI WebSocket CONNECTED`);
-    console.log(`[${sessionId}] 📊 Connection details:`, {
+    console.log(`[${getTimestamp()}] ✅ OpenAI WebSocket CONNECTED`);
+    console.log(`[${getTimestamp()}] 📊 Connection details:`, {
       readyState: openAISocket.readyState,
       protocol: openAISocket.protocol,
       url: openAISocket.url,
@@ -178,24 +195,40 @@ Mantenha o papel consistente durante toda a conversa.`;
 
     // Process any queued messages from client
     if (messageQueue.length > 0) {
-      console.log(`[${sessionId}] 📦 Processing ${messageQueue.length} queued messages...`);
+      console.log(`[${getTimestamp()}] 📦 Processing ${messageQueue.length} queued messages...`);
       while (messageQueue.length > 0) {
         const msg = messageQueue.shift();
         if (msg && openAISocket.readyState === WebSocket.OPEN) {
-          console.log(`[${sessionId}] 📤 Sending queued message:`, msg.substring(0, 100));
+          console.log(`[${getTimestamp()}] 📤 Sending queued message:`, msg.substring(0, 100));
           openAISocket.send(msg);
         }
       }
-      console.log(`[${sessionId}] ✅ Queue processed successfully`);
+      console.log(`[${getTimestamp()}] ✅ Queue processed successfully`);
     }
   };
 
   openAISocket.onmessage = async (event) => {
     try {
-      const data = JSON.parse(event.data);
+      let data;
+      try {
+        data = JSON.parse(event.data);
+      } catch (parseError) {
+        console.error(`[${getTimestamp()}] ❌ Failed to parse OpenAI message:`, parseError);
+        eventCounts.errors++;
+        return;
+      }
       
-      // Log ALL events for debugging
-      console.log(`[${sessionId}] 📨 Received event: ${data.type}`);
+      // Count audio deltas and transcripts
+      if (data.type === "response.audio.delta") {
+        eventCounts.audioDeltas++;
+      } else if (data.type === "response.audio_transcript.delta") {
+        eventCounts.transcripts++;
+      }
+      
+      // Log ALL events for debugging (except audio deltas to reduce noise)
+      if (data.type !== "response.audio.delta") {
+        console.log(`[${getTimestamp()}] 📨 Received event: ${data.type}`);
+      }
 
       // Log critical events with details
       if (data.type === "session.created") {
@@ -513,10 +546,19 @@ Mantenha o papel consistente durante toda a conversa.`;
 
   clientSocket.onmessage = (event) => {
     try {
-      const data = JSON.parse(event.data);
+      eventCounts.clientMessages++;
+      let data;
+      
+      try {
+        data = JSON.parse(event.data);
+      } catch (parseError) {
+        console.error(`[${getTimestamp()}] ❌ Failed to parse client message:`, parseError);
+        eventCounts.errors++;
+        return;
+      }
 
       if (data.type === "session.end") {
-        console.log(`[${sessionId}] 🛑 Client requested session end`);
+        console.log(`[${getTimestamp()}] 🛑 Client requested session end`);
         cleanup();
         return;
       }
@@ -524,28 +566,40 @@ Mantenha o papel consistente durante toda a conversa.`;
       // Queue messages if OpenAI not ready yet, otherwise forward directly
       if (!isOpenAIReady) {
         messageQueue.push(event.data);
-        console.log(`[${sessionId}] 📦 Message queued (OpenAI not ready). Queue size: ${messageQueue.length}`);
+        console.log(`[${getTimestamp()}] 📦 Message queued (OpenAI not ready). Queue size: ${messageQueue.length}`);
       } else if (openAISocket.readyState === WebSocket.OPEN) {
         openAISocket.send(event.data);
         
         // Only log non-audio-buffer messages to reduce noise
         if (data.type !== "input_audio_buffer.append") {
-          console.log(`[${sessionId}] ➡️ Forwarded to OpenAI: ${data.type}`);
+          console.log(`[${getTimestamp()}] ➡️ Forwarded to OpenAI: ${data.type}`);
         }
       } else {
-        console.warn(`[${sessionId}] ⚠️ OpenAI socket not ready, message dropped: ${data.type}`);
+        console.warn(`[${getTimestamp()}] ⚠️ OpenAI socket not ready, message dropped: ${data.type}`);
       }
     } catch (error) {
-      console.error(`[${sessionId}] ❌ Error handling client message:`, error);
+      console.error(`[${getTimestamp()}] ❌ Error handling client message:`, error);
+      eventCounts.errors++;
     }
   };
 
   clientSocket.onerror = (error) => {
-    console.error(`[${sessionId}] ❌ Client WebSocket error:`, error);
+    console.error(`[${getTimestamp()}] ❌ Client WebSocket error:`, error);
+    eventCounts.errors++;
   };
 
   clientSocket.onclose = () => {
-    console.log(`[${sessionId}] 🔌 Client WebSocket closed`);
+    const endTime = new Date();
+    const duration = ((endTime.getTime() - startTime.getTime()) / 1000).toFixed(1);
+    
+    console.log(`[${getTimestamp()}] 🔌 Client WebSocket closed`);
+    console.log(`[${getTimestamp()}] 📊 Session Summary:`);
+    console.log(`  ⏱️  Duration: ${duration}s`);
+    console.log(`  🎵 Audio deltas: ${eventCounts.audioDeltas}`);
+    console.log(`  📝 Transcripts: ${eventCounts.transcripts}`);
+    console.log(`  💬 Client messages: ${eventCounts.clientMessages}`);
+    console.log(`  ❌ Errors: ${eventCounts.errors}`);
+    
     cleanup();
   };
 

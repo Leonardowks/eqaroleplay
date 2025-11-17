@@ -110,6 +110,10 @@ export const useAudioPlayer = (options?: AudioPlayerOptions) => {
     return wavArray;
   }, [options]);
 
+  // Track retry attempts for failed chunks
+  const chunkRetries = useRef<Map<number, number>>(new Map());
+  const chunkIdCounter = useRef(0);
+
   // Play next chunk from queue
   const playNext = useCallback(async () => {
     if (audioQueueRef.current.length === 0) {
@@ -123,6 +127,7 @@ export const useAudioPlayer = (options?: AudioPlayerOptions) => {
     setIsPlaying(true);
     
     const audioData = audioQueueRef.current.shift()!;
+    const chunkId = chunkIdCounter.current++;
     
     // Update buffer health
     const queueLength = audioQueueRef.current.length;
@@ -196,8 +201,24 @@ export const useAudioPlayer = (options?: AudioPlayerOptions) => {
       console.error('[useAudioPlayer] Error playing chunk:', error);
       metricsRef.current.errors++;
       
-      // Auto-recovery: reset timing on error
-      nextStartTimeRef.current = 0;
+      // Retry logic: try up to 2 times per chunk
+      const retryCount = chunkRetries.current.get(chunkId) || 0;
+      if (retryCount < 2) {
+        console.log(`[useAudioPlayer] 🔄 Retrying chunk (attempt ${retryCount + 1}/2)...`);
+        chunkRetries.current.set(chunkId, retryCount + 1);
+        
+        // Put chunk back at the front of the queue
+        audioQueueRef.current.unshift(audioData);
+        
+        // Wait 100ms before retry
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } else {
+        console.log('[useAudioPlayer] ❌ Max retries reached, discarding chunk');
+        chunkRetries.current.delete(chunkId);
+        
+        // Auto-recovery: reset timing on error
+        nextStartTimeRef.current = 0;
+      }
       
       // Continue with next chunk
       playNext();
@@ -243,6 +264,48 @@ export const useAudioPlayer = (options?: AudioPlayerOptions) => {
   // Get metrics
   const getMetrics = useCallback(() => {
     return { ...metricsRef.current };
+  }, []);
+
+  // Track buffer health and auto-adjust buffer size
+  const criticalCountRef = useRef(0);
+  const goodCountRef = useRef(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const queueLength = audioQueueRef.current.length;
+      
+      if (queueLength === 0 && !isPlayingRef.current) {
+        setBufferHealth('idle' as any);
+        criticalCountRef.current = 0;
+        goodCountRef.current = 0;
+      } else if (queueLength > 5) {
+        setBufferHealth('good');
+        criticalCountRef.current = 0;
+        goodCountRef.current++;
+      } else if (queueLength > 2) {
+        setBufferHealth('warning');
+        criticalCountRef.current = 0;
+        goodCountRef.current = 0;
+      } else if (queueLength > 0) {
+        setBufferHealth('critical');
+        criticalCountRef.current++;
+        goodCountRef.current = 0;
+      }
+
+      // Auto-adjust: if critical 3 times in a row, consider increasing buffer
+      if (criticalCountRef.current >= 3) {
+        console.log('[useAudioPlayer] ⚙️ Buffer health critical multiple times - consider increasing buffer size');
+        criticalCountRef.current = 0; // Reset to avoid spam
+      }
+
+      // Auto-adjust: if good for 60 iterations (30 seconds), buffer is healthy
+      if (goodCountRef.current >= 60) {
+        console.log('[useAudioPlayer] ✅ Buffer health consistently good');
+        goodCountRef.current = 0; // Reset counter
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Cleanup on unmount
