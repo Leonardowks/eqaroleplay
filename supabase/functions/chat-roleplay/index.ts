@@ -150,7 +150,7 @@ serve(async (req) => {
       .from('session_messages')
       .insert({
         session_id: sessionId,
-        role: 'persona',
+        role: 'assistant',
         content: personaResponse
       });
 

@@ -33,7 +33,8 @@ export const useAudioPlayer = (options?: AudioPlayerOptions) => {
   // Initialize AudioContext
   const initAudioContext = useCallback(() => {
     if (!audioContextRef.current) {
-      const sampleRate = options?.sampleRate || 48000;
+      // OpenAI Realtime API uses 24kHz sample rate
+      const sampleRate = options?.sampleRate || 24000;
       const latencyHint = options?.latencyHint || 'interactive';
 
       audioContextRef.current = new AudioContext({
@@ -79,7 +80,8 @@ export const useAudioPlayer = (options?: AudioPlayerOptions) => {
       }
     };
 
-    const sampleRate = options?.sampleRate || 48000;
+    // OpenAI Realtime API uses 24kHz sample rate
+    const sampleRate = options?.sampleRate || 24000;
     const numChannels = 1;
     const bitsPerSample = 16;
 

@@ -7,10 +7,21 @@ import { Badge } from '@/components/ui/badge';
 import { Trophy, TrendingUp, Medal } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
+interface RankingUser {
+  position: number;
+  name: string;
+  sessions: number;
+  avgScore: number;
+  bestCompetency: string;
+  user_id?: string;
+}
+
 const Ranking = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [ranking, setRanking] = useState<RankingUser[]>([]);
+  const [loading, setLoading] = useState(true);
   const [myStats, setMyStats] = useState({
     position: 0,
     avgScore: 0,
@@ -37,37 +48,52 @@ const Ranking = () => {
       .single();
     
     setProfile(profileData);
-    loadMyStats(user.id);
+    await loadRankingData(user.id);
+    setLoading(false);
   };
 
-  const loadMyStats = async (userId: string) => {
-    const { data: sessions } = await supabase
-      .from('roleplay_sessions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'completed');
+  const loadRankingData = async (userId: string) => {
+    try {
+      // Load ranking from advanced_rankings view
+      const { data: rankingData, error } = await supabase
+        .from('advanced_rankings')
+        .select('*')
+        .order('avg_score', { ascending: false })
+        .limit(50);
 
-    if (sessions && sessions.length > 0) {
-      const avgScore = sessions.reduce((acc, s) => acc + (s.overall_score || 0), 0) / sessions.length;
-      setMyStats({
-        position: 5, // Mock position
-        avgScore: parseFloat(avgScore.toFixed(1)),
-        totalSessions: sessions.length,
-        trend: 'up',
-      });
+      if (error) {
+        console.error('Error loading ranking:', error);
+        return;
+      }
+
+      if (rankingData && rankingData.length > 0) {
+        const formattedRanking: RankingUser[] = rankingData.map((r: any, index: number) => ({
+          position: index + 1,
+          name: r.full_name || 'Usuário',
+          sessions: r.total_sessions || 0,
+          avgScore: parseFloat((r.avg_score || 0).toFixed(1)),
+          bestCompetency: r.best_competency || 'N/A',
+          user_id: r.user_id,
+        }));
+
+        setRanking(formattedRanking);
+
+        // Find current user's position
+        const userPosition = formattedRanking.findIndex(r => r.user_id === userId);
+        if (userPosition !== -1) {
+          const userRank = formattedRanking[userPosition];
+          setMyStats({
+            position: userPosition + 1,
+            avgScore: userRank.avgScore,
+            totalSessions: userRank.sessions,
+            trend: 'up',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading ranking data:', error);
     }
   };
-
-  // Mock ranking data
-  const mockRanking = [
-    { position: 1, name: 'Ana Silva', sessions: 45, avgScore: 9.2, bestCompetency: 'Fechamento' },
-    { position: 2, name: 'Carlos Mendes', sessions: 38, avgScore: 8.9, bestCompetency: 'Descoberta' },
-    { position: 3, name: 'Beatriz Costa', sessions: 42, avgScore: 8.7, bestCompetency: 'Valor' },
-    { position: 4, name: 'Diego Santos', sessions: 35, avgScore: 8.5, bestCompetency: 'Objeções' },
-    { position: 5, name: profile?.full_name || 'Você', sessions: myStats.totalSessions, avgScore: myStats.avgScore, bestCompetency: 'IA' },
-    { position: 6, name: 'Elena Rodrigues', sessions: 30, avgScore: 8.2, bestCompetency: 'Proposta' },
-    { position: 7, name: 'Felipe Alves', sessions: 28, avgScore: 8.0, bestCompetency: 'Descoberta' },
-  ];
 
   const getPositionIcon = (position: number) => {
     if (position === 1) return <Trophy className="text-yellow-500" size={24} />;
@@ -114,9 +140,14 @@ const Ranking = () => {
         {/* Ranking Table */}
         <Card className="p-4 sm:p-6 bg-card border-border">
           <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Ranking Geral</h2>
+          {loading ? (
+            <div className="text-center py-8 text-muted-foreground">Carregando ranking...</div>
+          ) : ranking.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">Nenhum usuário no ranking ainda.</div>
+          ) : (
           <div className="space-y-3">
-            {mockRanking.map((rank) => {
-              const isCurrentUser = rank.position === myStats.position;
+            {ranking.map((rank) => {
+              const isCurrentUser = rank.user_id === user?.id;
               return (
                 <div
                   key={rank.position}
@@ -159,6 +190,7 @@ const Ranking = () => {
               );
             })}
           </div>
+          )}
         </Card>
 
         {/* Info Card */}

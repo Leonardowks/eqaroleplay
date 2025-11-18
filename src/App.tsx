@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { BrandingProvider } from "./contexts/BrandingContext";
 
 // Lazy load all pages for better initial bundle size
 const Index = lazy(() => import("./pages/Index"));
@@ -25,6 +26,8 @@ const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
 const AdminSessions = lazy(() => import("./pages/admin/AdminSessions"));
+const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
+const AdminBranding = lazy(() => import("./pages/admin/AdminBranding"));
 
 // Optimize React Query configuration
 const queryClient = new QueryClient({
@@ -52,10 +55,11 @@ const LoadingFallback = () => (
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+      <BrandingProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
           <Suspense fallback={<LoadingFallback />}>
             <Routes>
               <Route path="/" element={<Navigate to="/auth" replace />} />
@@ -75,14 +79,17 @@ const App = () => (
                 <Route index element={<AdminDashboard />} />
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="sessions" element={<AdminSessions />} />
+                <Route path="settings" element={<AdminSettings />} />
+                <Route path="branding" element={<AdminBranding />} />
               </Route>
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </Suspense>
-        </BrowserRouter>
-      </TooltipProvider>
+            </Suspense>
+          </BrowserRouter>
+        </TooltipProvider>
+      </BrandingProvider>
     </QueryClientProvider>
   </ErrorBoundary>
 );

@@ -36,7 +36,7 @@ export class AudioRecorder {
 
       // Try AudioWorklet first (modern browsers, better performance)
       try {
-        await this.audioContext.audioWorklet.addModule('/src/utils/audio-processor.worklet.ts');
+        await this.audioContext.audioWorklet.addModule('/audio-processor.worklet.js');
         this.workletNode = new AudioWorkletNode(this.audioContext, 'audio-recorder-processor');
         
         this.workletNode.port.onmessage = (event) => {

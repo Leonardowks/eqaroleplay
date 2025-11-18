@@ -505,7 +505,10 @@ const VoiceChat = () => {
         });
       }
 
-      const wsUrl = `wss://wzronlqzkxqzohugajvz.supabase.co/functions/v1/realtime-voice?sessionId=${sessionId}&personaId=${personaId}&meetingType=${meetingType}`;
+      // Build WebSocket URL from Supabase URL environment variable
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+      const wsBaseUrl = supabaseUrl.replace('https://', 'wss://');
+      const wsUrl = `${wsBaseUrl}/functions/v1/realtime-voice?sessionId=${sessionId}&personaId=${personaId}&meetingType=${meetingType}`;
       
       wsRef.current = new WebSocket(wsUrl);
 

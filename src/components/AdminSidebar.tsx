@@ -1,4 +1,4 @@
-import { Users, BarChart3, MessageSquare, Shield } from 'lucide-react';
+import { Users, BarChart3, MessageSquare, Shield, Settings, Palette } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import {
   Sidebar,
@@ -16,6 +16,8 @@ const adminItems = [
   { title: 'Visão Geral', url: '/admin', icon: BarChart3 },
   { title: 'Usuários', url: '/admin/users', icon: Users },
   { title: 'Sessões', url: '/admin/sessions', icon: MessageSquare },
+  { title: 'Configurações', url: '/admin/settings', icon: Settings },
+  { title: 'Marca & Visual', url: '/admin/branding', icon: Palette },
 ];
 
 export function AdminSidebar() {
