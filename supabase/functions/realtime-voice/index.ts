@@ -311,9 +311,9 @@ Mantenha o papel consistente durante toda a conversa.`;
               },
         turn_detection: {
           type: "server_vad",
-          threshold: 0.7,
-          prefix_padding_ms: 900,
-          silence_duration_ms: 2000,
+          threshold: 0.5,  // Mais sensível (era 0.7)
+          prefix_padding_ms: 300,  // Menos padding
+          silence_duration_ms: 500,  // Detecta pausa mais rápido (era 2000ms)
           create_response: true
         },
               temperature: 0.9,
@@ -459,6 +459,10 @@ Mantenha o papel consistente durante toda a conversa.`;
         // ====== NOVA LÓGICA PARA ELEVENLABS ======
         // Se persona usa ElevenLabs, gerar áudio customizado
         if (persona.voice_provider === "elevenlabs" && persona.elevenlabs_voice_id && data.transcript) {
+          // IMPORTANTE: Ativar bloqueio AGORA que sabemos que temos transcrição válida
+          shouldBlockOpenAIAudio = true;
+          console.log(`[${sessionId}] 🚫 Activated audio blocking (using ElevenLabs for this response)`);
+          
           try {
             console.log(`[${sessionId}] 🔄 Intercepting OpenAI audio, using ElevenLabs instead`);
             
@@ -626,14 +630,7 @@ Mantenha o papel consistente durante toda a conversa.`;
         // Already handled above, this catches duplicate error events
       } else if (data.type === "response.created") {
         console.log(`[${sessionId}] 🤖 AI response started`);
-        
-        // Ativar bloqueio de áudio se persona usa ElevenLabs
-        if (persona.voice_provider === "elevenlabs" && persona.elevenlabs_voice_id) {
-          shouldBlockOpenAIAudio = true;
-          console.log(`[${sessionId}] 🚫 Blocking OpenAI audio chunks (will use ElevenLabs)`);
-        } else {
-          shouldBlockOpenAIAudio = false;
-        }
+        // NÃO bloquear preventivamente - só bloquear se recebermos transcrição válida
       } else if (data.type === "response.done") {
         console.log(`[${sessionId}] ✅ AI response finished`);
         
