@@ -55,17 +55,17 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
 
   const loadBranding = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('branding')
         .select('*')
         .limit(1)
         .single();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error && error.code !== 'PGRST116' && error.code !== 'PGRST205') throw error;
 
       if (data) {
-        setBranding(data);
-        applyBrandingToDOM(data);
+        setBranding(data as Branding);
+        applyBrandingToDOM(data as Branding);
       }
     } catch (error) {
       console.error('Error loading branding:', error);

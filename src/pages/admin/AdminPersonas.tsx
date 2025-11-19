@@ -43,7 +43,6 @@ interface Persona {
   difficulty: string;
   description: string | null;
   personality_traits: any;
-  custom_prompt: string | null;
   avatar_url: string | null;
   voice_provider: string | null;
   elevenlabs_voice_id: string | null;
@@ -59,7 +58,6 @@ const AdminPersonas = () => {
   const [editedRole, setEditedRole] = useState('');
   const [editedCompany, setEditedCompany] = useState('');
   const [editedSector, setEditedSector] = useState('');
-  const [editedPrompt, setEditedPrompt] = useState('');
   const [editedDescription, setEditedDescription] = useState('');
   const [editedDifficulty, setEditedDifficulty] = useState('');
 
@@ -72,7 +70,6 @@ const AdminPersonas = () => {
     sector: '',
     difficulty: 'medium',
     description: '',
-    custom_prompt: '',
   });
 
   useEffect(() => {
@@ -109,7 +106,6 @@ const AdminPersonas = () => {
     setEditedRole(persona.role);
     setEditedCompany(persona.company);
     setEditedSector(persona.sector);
-    setEditedPrompt(persona.custom_prompt || '');
     setEditedDescription(persona.description || '');
     setEditedDifficulty(persona.difficulty);
   };
@@ -124,7 +120,6 @@ const AdminPersonas = () => {
         role: editedRole,
         company: editedCompany,
         sector: editedSector,
-        custom_prompt: editedPrompt || null,
         description: editedDescription || null,
         difficulty: editedDifficulty,
       };
@@ -181,7 +176,6 @@ const AdminPersonas = () => {
           sector: newPersona.sector,
           difficulty: newPersona.difficulty,
           description: newPersona.description || null,
-          custom_prompt: newPersona.custom_prompt || null,
         });
 
       if (error) throw error;
@@ -199,7 +193,6 @@ const AdminPersonas = () => {
         sector: '',
         difficulty: 'medium',
         description: '',
-        custom_prompt: '',
       });
       await loadPersonas();
     } catch (error) {
@@ -323,12 +316,9 @@ const AdminPersonas = () => {
                 <span>{persona.sector}</span>
               </div>
 
-              {persona.custom_prompt && (
-                <div className="flex items-center gap-2 text-sm text-green-600">
-                  <MessageSquare className="h-4 w-4" />
-                  <span>Prompt customizado</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2 text-sm">
+                <Badge variant="outline">{getDifficultyLabel(persona.difficulty)}</Badge>
+              </div>
 
               <div className="flex gap-2 mt-2">
                 <Button
@@ -433,18 +423,6 @@ const AdminPersonas = () => {
                 rows={3}
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="new-custom_prompt">Prompt Customizado (Opcional)</Label>
-              <Textarea
-                id="new-custom_prompt"
-                value={newPersona.custom_prompt}
-                onChange={(e) => setNewPersona({ ...newPersona, custom_prompt: e.target.value })}
-                placeholder="Deixe vazio para usar o prompt padrão gerado automaticamente..."
-                rows={8}
-                className="font-mono text-sm"
-              />
-            </div>
           </div>
 
           <DialogFooter>
@@ -541,35 +519,6 @@ const AdminPersonas = () => {
               />
               <p className="text-xs text-muted-foreground">
                 Breve descrição do perfil e contexto da persona
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="custom_prompt">Prompt Customizado (Opcional)</Label>
-              <Textarea
-                id="custom_prompt"
-                value={editedPrompt}
-                onChange={(e) => setEditedPrompt(e.target.value)}
-                placeholder={`Deixe vazio para usar o prompt padrão gerado automaticamente.
-
-Exemplo de prompt customizado:
-Você é ${editingPersona?.name}, ${editingPersona?.role} na ${editingPersona?.company}.
-
-Suas características:
-- Seja direto e objetivo
-- Foque em ROI e resultados
-- Questione afirmações vagas
-
-Comportamento:
-- Faça perguntas desafiadoras
-- Peça exemplos concretos
-- Negocie preços agressivamente`}
-                rows={12}
-                className="font-mono text-sm"
-              />
-              <p className="text-xs text-muted-foreground">
-                Se preenchido, substitui completamente o prompt gerado automaticamente.
-                Deixe vazio para usar o comportamento padrão baseado na dificuldade e tipo de reunião.
               </p>
             </div>
           </div>

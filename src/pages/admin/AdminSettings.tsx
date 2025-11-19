@@ -44,29 +44,37 @@ const AdminSettings = () => {
     setLoading(true);
     try {
       // Load API configurations
-      const { data: apiData, error: apiError } = await supabase
+      const { data: apiData, error: apiError } = await (supabase as any)
         .from('api_configurations')
         .select('*')
         .order('display_name');
 
-      if (apiError) throw apiError;
-      setApiConfigs(apiData || []);
+      if (apiError) {
+        console.error('API configurations table not found:', apiError);
+      }
+
+      const typedApiData = (apiData || []) as ApiConfig[];
+      setApiConfigs(typedApiData);
 
       // Initialize edited keys with current values
       const initialKeys: Record<string, string> = {};
-      apiData?.forEach(config => {
+      typedApiData.forEach(config => {
         initialKeys[config.provider] = config.api_key;
       });
       setEditedKeys(initialKeys);
 
       // Load feature flags
-      const { data: flagsData, error: flagsError } = await supabase
+      const { data: flagsData, error: flagsError } = await (supabase as any)
         .from('feature_flags')
         .select('*')
         .order('display_name');
 
-      if (flagsError) throw flagsError;
-      setFeatureFlags(flagsData || []);
+      if (flagsError) {
+        console.error('Feature flags table not found:', flagsError);
+      }
+
+      const typedFlagsData = (flagsData || []) as FeatureFlag[];
+      setFeatureFlags(typedFlagsData);
 
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -85,7 +93,7 @@ const AdminSettings = () => {
     try {
       const newKey = editedKeys[provider];
 
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('api_configurations')
         .update({
           api_key: newKey,
@@ -116,7 +124,7 @@ const AdminSettings = () => {
 
   const toggleFeatureFlag = async (flagId: string, currentValue: boolean) => {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('feature_flags')
         .update({ is_enabled: !currentValue })
         .eq('id', flagId);
