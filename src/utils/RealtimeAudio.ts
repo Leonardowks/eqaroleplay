@@ -308,12 +308,20 @@ export class AudioQueue {
       
       // Inicializar nextStartTime se for o primeiro chunk
       if (this.nextStartTime === 0) {
-        this.nextStartTime = currentTime + 0.05; // 50ms buffer inicial
+        this.nextStartTime = currentTime + 0.15; // 150ms buffer inicial para absorver jitter
       }
-      
-      // Se nextStartTime ficou no passado (atrasado), sincronizar
+
+      // Se nextStartTime ficou no passado (atrasado), sincronizar com margem adequada
       if (this.nextStartTime < currentTime) {
-        this.nextStartTime = currentTime + 0.02; // 20ms de margem mínima
+        const drift = currentTime - this.nextStartTime;
+        if (drift > 0.5) {
+          // Muito atrasado (>500ms), resetar completamente
+          console.warn(`[AudioQueue] Major drift: ${(drift * 1000).toFixed(0)}ms, resetting`);
+          this.nextStartTime = currentTime + 0.15; // Reset com buffer completo
+        } else {
+          // Pequeno atraso, compensar com margem adequada
+          this.nextStartTime = currentTime + 0.08; // 80ms de margem
+        }
       }
 
       // IMPORTANTE: NÃO acelerar - deixar o áudio tocar no ritmo natural

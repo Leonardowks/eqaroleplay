@@ -22,6 +22,8 @@ import { Mic, MicOff, PhoneOff, Volume2, ArrowLeft, Clock, Wifi, WifiOff, Activi
 import Header from "@/components/Header";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import SessionSummaryModal from "@/components/SessionSummaryModal";
+import RealTimeFeedbackIndicator from "@/components/RealTimeFeedbackIndicator";
+import { useRealtimeFeedback } from "@/hooks/useRealtimeFeedback";
 import { AudioPerformanceTest } from "@/components/AudioPerformanceTest";
 import { AudioDiagnostics } from "@/components/AudioDiagnostics";
 import { cn } from "@/lib/utils";
@@ -65,6 +67,17 @@ const VoiceChat = () => {
   const [showPerformanceTest, setShowPerformanceTest] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [currentAudioProvider, setCurrentAudioProvider] = useState<'openai' | 'elevenlabs'>('openai');
+
+  // Real-time feedback hook
+  const {
+    scores: spinScores,
+    suggestions,
+    overallScore,
+    messageCount,
+    isAnalyzing,
+    addMessage: addFeedbackMessage,
+    reset: resetFeedback,
+  } = useRealtimeFeedback({ analyzeEveryNMessages: 2, sessionId: sessionId || undefined });
 
   const wsRef = useRef<WebSocket | null>(null);
   const recorderRef = useRef<AudioRecorder | null>(null);
@@ -593,14 +606,11 @@ const VoiceChat = () => {
         // ====== FIM DO NOVO ======
 
         if (data.type === "response.audio.delta") {
-          // Add natural delay before first audio chunk for more natural feel
+          // Minimal setup for first chunk
           if (!isSpeaking) {
-            setIsProcessing(true);
-            await new Promise(resolve => setTimeout(resolve, 300));
-            setIsProcessing(false);
             triggerHaptic('light'); // Subtle haptic when AI starts speaking
           }
-          
+
           setCurrentAudioProvider('openai'); // Definir provider como OpenAI
           setIsSpeaking(true);
           const binaryString = atob(data.delta);
@@ -608,17 +618,27 @@ const VoiceChat = () => {
           for (let i = 0; i < binaryString.length; i++) {
             bytes[i] = binaryString.charCodeAt(i);
           }
-          
+
           // Use enhanced audio ou sistema legado baseado no feature flag
+          // Não usar await para não bloquear processamento de chunks
           if (USE_ENHANCED_AUDIO && enhancedAudio) {
-            await enhancedAudio.enqueueAudio(bytes);
+            enhancedAudio.enqueueAudio(bytes);
           } else {
-            await audioQueueRef.current?.addToQueue(bytes);
+            audioQueueRef.current?.addToQueue(bytes);
           }
         }
 
         if (data.type === "response.audio.done") {
           setIsSpeaking(false);
+
+          // Track completed assistant message for context
+          setMessages(prev => {
+            const lastMsg = prev[prev.length - 1];
+            if (lastMsg && lastMsg.role === 'assistant' && lastMsg.content) {
+              addFeedbackMessage({ role: 'assistant', content: lastMsg.content });
+            }
+            return prev;
+          });
         }
 
         if (data.type === "conversation.item.input_audio_transcription.completed") {
@@ -627,6 +647,9 @@ const VoiceChat = () => {
             content: data.transcript,
             timestamp: new Date(),
           }]);
+
+          // Track user message for feedback analysis
+          addFeedbackMessage({ role: 'user', content: data.transcript });
         }
 
         if (data.type === "response.audio_transcript.delta") {
@@ -1121,26 +1144,40 @@ const VoiceChat = () => {
             )}
           </div>
 
-          {/* Transcriptions */}
-          {messages.length > 0 && (
-            <div className="bg-muted rounded-lg p-4 mb-6 max-h-64 overflow-y-auto">
-              <h3 className="text-sm font-semibold mb-3 text-muted-foreground">
-                Transcrição
-              </h3>
-              <div className="space-y-3">
-                {messages.map((msg, idx) => (
-                  <div key={idx} className={`text-sm ${
-                    msg.role === "user" ? "text-foreground" : "text-primary"
-                  }`}>
-                    <span className="font-semibold">
-                      {msg.role === "user" ? "Você" : personaName}:
-                    </span>{" "}
-                    {msg.content}
-                  </div>
-                ))}
+          {/* Transcriptions and Feedback */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+            {/* Transcriptions */}
+            {messages.length > 0 && (
+              <div className="lg:col-span-2 bg-muted rounded-lg p-4 max-h-64 overflow-y-auto">
+                <h3 className="text-sm font-semibold mb-3 text-muted-foreground">
+                  Transcrição
+                </h3>
+                <div className="space-y-3">
+                  {messages.map((msg, idx) => (
+                    <div key={idx} className={`text-sm ${
+                      msg.role === "user" ? "text-foreground" : "text-primary"
+                    }`}>
+                      <span className="font-semibold">
+                        {msg.role === "user" ? "Você" : personaName}:
+                      </span>{" "}
+                      {msg.content}
+                    </div>
+                  ))}
+                </div>
               </div>
+            )}
+
+            {/* Real-time Feedback */}
+            <div className={messages.length > 0 ? "lg:col-span-1" : "lg:col-span-3"}>
+              <RealTimeFeedbackIndicator
+                scores={spinScores}
+                suggestions={suggestions}
+                overallScore={overallScore}
+                messageCount={messageCount}
+                isAnalyzing={isAnalyzing}
+              />
             </div>
-          )}
+          </div>
 
           {/* End Button - Maior no mobile */}
           <div className="flex justify-center">

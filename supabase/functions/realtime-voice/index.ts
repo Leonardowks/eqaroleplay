@@ -29,13 +29,22 @@ serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const openAIKey = Deno.env.get("OPENAI_API_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
-  if (!openAIKey) {
-    return new Response("OpenAI API key not configured", { status: 500 });
+  // Get OpenAI API key from database
+  const { data: openaiConfig, error: openaiConfigError } = await supabase
+    .from('api_configurations')
+    .select('api_key')
+    .eq('provider', 'openai')
+    .eq('is_active', true)
+    .single();
+
+  if (openaiConfigError || !openaiConfig?.api_key) {
+    console.error('Error fetching OpenAI API key:', openaiConfigError);
+    return new Response("OpenAI API key not configured. Please add it in Admin Settings.", { status: 500 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const openAIKey = openaiConfig.api_key;
 
   console.log(`[${sessionId}] 🚀 Step 1: Fetching persona...`);
   
@@ -71,7 +80,10 @@ serve(async (req) => {
     ? JSON.stringify(persona.personality_traits)
     : "profissional equilibrado";
 
-  const systemPrompt = `Você é ${persona.name}, ${persona.role} na empresa ${persona.company} do setor de ${persona.sector}.
+  // Use custom prompt if available, otherwise build default
+  const systemPrompt = persona.custom_prompt
+    ? persona.custom_prompt
+    : `Você é ${persona.name}, ${persona.role} na empresa ${persona.company} do setor de ${persona.sector}.
 
 ${persona.description || ""}
 
@@ -102,6 +114,8 @@ Se o vendedor demonstrar valor real, mostre interesse gradual.
 Se a abordagem for fraca ou genérica, seja mais resistente.
 
 Mantenha o papel consistente durante toda a conversa.`;
+
+  console.log(`[${sessionId}] 📝 Using ${persona.custom_prompt ? 'custom' : 'default'} prompt`);
 
   // Voice mapping by persona gender/personality
   const voiceMapping: Record<string, string> = {
@@ -160,14 +174,22 @@ Mantenha o papel consistente durante toda a conversa.`;
 
   // Helper function to generate audio with ElevenLabs
   async function generateElevenLabsAudio(
-    text: string, 
+    text: string,
     voiceId: string
   ): Promise<ArrayBuffer> {
-    const elevenLabsKey = Deno.env.get("ELEVENLABS_API_KEY");
-    
-    if (!elevenLabsKey) {
-      throw new Error("ELEVENLABS_API_KEY not configured");
+    // Get ElevenLabs API key from database
+    const { data: elevenLabsConfig, error: elevenLabsConfigError } = await supabase
+      .from('api_configurations')
+      .select('api_key')
+      .eq('provider', 'elevenlabs')
+      .eq('is_active', true)
+      .single();
+
+    if (elevenLabsConfigError || !elevenLabsConfig?.api_key) {
+      throw new Error("ELEVENLABS_API_KEY not configured. Please add it in Admin Settings.");
     }
+
+    const elevenLabsKey = elevenLabsConfig.api_key;
 
     console.log(`[${sessionId}] 🎙️ Generating audio with ElevenLabs (voice: ${voiceId})`);
     
@@ -309,15 +331,15 @@ Mantenha o papel consistente durante toda a conversa.`;
               input_audio_transcription: {
                 model: "whisper-1",
               },
-        turn_detection: {
-          type: "server_vad",
-          threshold: 0.5,  // Mais sensível (era 0.7)
-          prefix_padding_ms: 300,  // Menos padding
-          silence_duration_ms: 500,  // Detecta pausa mais rápido (era 2000ms)
-          create_response: true
-        },
-              temperature: 0.9,
-              max_response_output_tokens: 150,
+              turn_detection: {
+                type: "server_vad",
+                threshold: 0.7,  // Menos sensível a ruídos
+                prefix_padding_ms: 600,  // Padding no início
+                silence_duration_ms: 2000,  // Esperar 2s antes de responder
+                create_response: true
+              },
+              temperature: 0.8,
+              max_response_output_tokens: 500,  // Respostas mais completas
             },
           };
           

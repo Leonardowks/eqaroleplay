@@ -88,9 +88,11 @@ serve(async (req) => {
       content: msg.content
     })) || [];
 
-    // Construct system prompt based on persona and meeting type
-    const systemPrompt = buildSystemPrompt(persona, session.meeting_type, session.method);
-    console.log('System prompt:', systemPrompt);
+    // Use custom prompt if available, otherwise build default
+    const systemPrompt = persona.custom_prompt
+      ? persona.custom_prompt
+      : buildSystemPrompt(persona, session.meeting_type, session.method);
+    console.log('System prompt:', persona.custom_prompt ? 'Using custom prompt' : 'Using default prompt');
 
     // Save user message to database
     const { error: saveUserError } = await supabase
@@ -105,20 +107,33 @@ serve(async (req) => {
       console.error('Error saving user message:', saveUserError);
     }
 
-    // Call Lovable AI
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    // Get OpenAI API key from database or environment
+    let OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+
+    if (!OPENAI_API_KEY) {
+      const { data: apiConfig, error: apiConfigError } = await supabase
+        .from('api_configurations')
+        .select('api_key')
+        .eq('provider', 'openai')
+        .eq('is_active', true)
+        .single();
+
+      if (apiConfigError || !apiConfig?.api_key) {
+        console.error('Error fetching OpenAI API key:', apiConfigError);
+        throw new Error('OPENAI_API_KEY not configured. Please add it in Admin Settings or as environment variable.');
+      }
+
+      OPENAI_API_KEY = apiConfig.api_key;
     }
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           ...conversationHistory,

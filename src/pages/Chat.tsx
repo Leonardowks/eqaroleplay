@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import SessionSummaryModal from '@/components/SessionSummaryModal';
+import RealTimeFeedbackIndicator from '@/components/RealTimeFeedbackIndicator';
+import { useRealtimeFeedback } from '@/hooks/useRealtimeFeedback';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -51,6 +53,17 @@ const Chat = () => {
   const [duration, setDuration] = useState(0);
   const [showSummary, setShowSummary] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+  // Real-time feedback hook
+  const {
+    scores: spinScores,
+    suggestions,
+    overallScore,
+    messageCount,
+    isAnalyzing,
+    addMessage: addFeedbackMessage,
+    reset: resetFeedback,
+  } = useRealtimeFeedback({ analyzeEveryNMessages: 2, sessionId: sessionId || undefined });
 
   useEffect(() => {
     checkUser();
@@ -183,6 +196,9 @@ const Chat = () => {
     };
     setMessages(prev => [...prev, tempUserMessage]);
 
+    // Track message for feedback analysis
+    addFeedbackMessage({ role: 'user', content: userMessage });
+
     try {
       // Show typing indicator
       setIsTyping(true);
@@ -225,6 +241,9 @@ const Chat = () => {
         created_at: new Date().toISOString(),
       };
       setMessages(prev => [...prev, personaMessage]);
+
+      // Track persona response for context
+      addFeedbackMessage({ role: 'assistant', content: data.response });
 
     } catch (error: any) {
       console.error('Error sending message:', error);
@@ -322,9 +341,11 @@ const Chat = () => {
           </Button>
         </Card>
 
-        {/* Messages Area */}
-        <Card className="flex-1 p-6 bg-card border-border flex flex-col overflow-hidden mb-6">
-          <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+        {/* Main Content Area with Feedback Sidebar */}
+        <div className="flex-1 flex gap-4 mb-6 min-h-0">
+          {/* Messages Area */}
+          <Card className="flex-1 p-6 bg-card border-border flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto space-y-4 mb-4">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -377,7 +398,19 @@ const Chat = () => {
               )}
             </Button>
           </form>
-        </Card>
+          </Card>
+
+          {/* Real-time Feedback Sidebar */}
+          <div className="hidden lg:block w-72 flex-shrink-0">
+            <RealTimeFeedbackIndicator
+              scores={spinScores}
+              suggestions={suggestions}
+              overallScore={overallScore}
+              messageCount={messageCount}
+              isAnalyzing={isAnalyzing}
+            />
+          </div>
+        </div>
 
         {/* Tips */}
         <Card className="p-4 bg-muted/30">
