@@ -31,20 +31,17 @@ serve(async (req) => {
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  // Get OpenAI API key from database
-  const { data: openaiConfig, error: openaiConfigError } = await supabase
-    .from('api_configurations')
-    .select('api_key')
-    .eq('provider', 'openai')
-    .eq('is_active', true)
-    .single();
-
-  if (openaiConfigError || !openaiConfig?.api_key) {
-    console.error('Error fetching OpenAI API key:', openaiConfigError);
-    return new Response("OpenAI API key not configured. Please add it in Admin Settings.", { status: 500 });
+  // Get OpenAI API key from environment
+  const openAIKey = Deno.env.get('OPENAI_API_KEY');
+  if (!openAIKey) {
+    console.error(`[${sessionId}] ❌ OPENAI_API_KEY not configured in environment`);
+    return new Response("OpenAI API key not configured. Please add it as a secret in Lovable Cloud.", { 
+      status: 500,
+      headers: corsHeaders 
+    });
   }
 
-  const openAIKey = openaiConfig.api_key;
+  console.log(`[${sessionId}] ✅ OpenAI API key loaded from environment`);
 
   console.log(`[${sessionId}] 🚀 Step 1: Fetching persona...`);
   
@@ -177,19 +174,13 @@ Mantenha o papel consistente durante toda a conversa.`;
     text: string,
     voiceId: string
   ): Promise<ArrayBuffer> {
-    // Get ElevenLabs API key from database
-    const { data: elevenLabsConfig, error: elevenLabsConfigError } = await supabase
-      .from('api_configurations')
-      .select('api_key')
-      .eq('provider', 'elevenlabs')
-      .eq('is_active', true)
-      .single();
-
-    if (elevenLabsConfigError || !elevenLabsConfig?.api_key) {
-      throw new Error("ELEVENLABS_API_KEY not configured. Please add it in Admin Settings.");
+    // Get ElevenLabs API key from environment
+    const elevenLabsKey = Deno.env.get('ELEVENLABS_API_KEY');
+    
+    if (!elevenLabsKey) {
+      console.error(`[${sessionId}] ❌ ELEVENLABS_API_KEY not configured`);
+      throw new Error("ElevenLabs API key not configured");
     }
-
-    const elevenLabsKey = elevenLabsConfig.api_key;
 
     console.log(`[${sessionId}] 🎙️ Generating audio with ElevenLabs (voice: ${voiceId})`);
     

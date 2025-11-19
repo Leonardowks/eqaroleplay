@@ -65,16 +65,16 @@ const AdminBranding = () => {
   const loadBranding = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('branding')
         .select('*')
         .limit(1)
         .single();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error && error.code !== 'PGRST116' && error.code !== 'PGRST205') throw error;
 
       if (data) {
-        setBranding(data);
+        setBranding(data as Branding);
       }
     } catch (error) {
       console.error('Error loading branding:', error);
@@ -92,14 +92,14 @@ const AdminBranding = () => {
     setSaving(true);
     try {
       if (branding.id) {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('branding')
           .update(branding)
           .eq('id', branding.id);
 
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('branding')
           .insert(branding);
 
