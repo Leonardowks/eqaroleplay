@@ -6,7 +6,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { company_config } = await req.json();
+    const { company_config, organization_id } = await req.json();
 
     if (!company_config) {
       return new Response(JSON.stringify({ error: 'company_config is required' }), {
@@ -23,39 +23,32 @@ Deno.serve(async (req) => {
       });
     }
 
-    const prompt = `Você é um especialista em vendas B2B. Com base no perfil da empresa abaixo, gere EXATAMENTE 3 personas de clientes para treinamento de vendas em roleplay.
+    const mainPains = (company_config.icp?.main_pains || []).join(', ');
+    const commonObjections = (company_config.icp?.common_objections || []).join(', ');
+    const salesStages = (company_config.sales_stages || []).join(', ');
 
-PERFIL DA EMPRESA:
-- Nome: ${company_config.company_name}
-- Segmento: ${company_config.segment}
-- Produto/Serviço: ${company_config.product_description}
-- Ticket Médio: ${company_config.ticket_range}
-- Ciclo de Vendas: ${company_config.sales_cycle}
-- Metodologia: ${company_config.methodology}
+    const userPrompt = `Company: ${company_config.company_name} | Segment: ${company_config.segment} | Product: ${company_config.product_description}
+ICP: Buyer is ${company_config.icp?.buyer_role || 'Gerente'}. Main pains: ${mainPains}. Common objections: ${commonObjections}. Sophistication: ${company_config.icp?.sophistication_level || 'intermediario'}.
+Methodology: ${company_config.methodology}. Sales stages: ${salesStages}.
 
-PERFIL DO CLIENTE IDEAL (ICP):
-- Cargo do Comprador: ${company_config.icp?.buyer_role || 'Gerente'}
-- Principais Dores: ${(company_config.icp?.main_pains || []).join(', ')}
-- Objeções Comuns: ${(company_config.icp?.common_objections || []).join(', ')}
-- Nível de Sofisticação: ${company_config.icp?.sophistication_level || 'intermediario'}
+Generate exactly 3 personas:
+- Persona 1: difficulty = 'easy' (cooperative, open, few objections)
+- Persona 2: difficulty = 'medium' (has real objections, needs convincing)
+- Persona 3: difficulty = 'hard' (skeptical, time-pressured, multiple objections)
 
-Gere 3 personas com dificuldades diferentes:
-1. "easy" - Cliente receptivo, interessado, faz perguntas construtivas
-2. "medium" - Cliente neutro, precisa ser convencido, faz objeções moderadas
-3. "hard" - Cliente difícil, cético, faz objeções fortes, pressiona por desconto
-
-Para cada persona, retorne:
-- name: nome brasileiro realista
-- role: cargo na empresa
-- company: nome fictício de empresa brasileira do setor do ICP
-- sector: setor da empresa do cliente
-- difficulty: "easy", "medium" ou "hard"
-- description: 2-3 frases descrevendo a personalidade e comportamento
-- personality_traits: array com 3-5 traços de personalidade
-- objection_patterns: array com 2-3 objeções que essa persona costuma fazer
-
-Responda APENAS com JSON válido no formato:
-{"personas": [...]}`;
+Return JSON array:
+[{
+  "name": string (Brazilian first name + last name),
+  "role": string (job title matching buyer_role),
+  "company": string (fictional company name matching segment),
+  "sector": string,
+  "difficulty": "easy"|"medium"|"hard",
+  "description": string (2-3 sentences about personality and behavior in Portuguese),
+  "pain_points": string[] (3 items from company context, in Portuguese),
+  "objection_patterns": string[] (3 realistic objections for this persona, in Portuguese),
+  "buying_signals": string[] (3 signals this persona shows when interested, in Portuguese),
+  "resistance_level": number (1-10, easy=2-3, medium=5-6, hard=8-9)
+}]`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -66,8 +59,11 @@ Responda APENAS com JSON válido no formato:
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'Você gera personas de clientes para treinamento de vendas. Responda APENAS com JSON válido.' },
-          { role: 'user', content: prompt },
+          {
+            role: 'system',
+            content: 'You are an expert in B2B sales training. Generate 3 realistic buyer personas for roleplay training based on the company context provided. Return ONLY a valid JSON object with a "personas" key containing the array, no markdown.',
+          },
+          { role: 'user', content: userPrompt },
         ],
         temperature: 0.8,
         response_format: { type: 'json_object' },
@@ -89,7 +85,10 @@ Responda APENAS com JSON válido no formato:
 
     const parsed = JSON.parse(content);
 
-    return new Response(JSON.stringify(parsed), {
+    // Normalize: accept both {personas: [...]} and direct array
+    const personas = Array.isArray(parsed) ? parsed : (parsed.personas || []);
+
+    return new Response(JSON.stringify({ personas, organization_id }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
