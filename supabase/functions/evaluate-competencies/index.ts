@@ -6,49 +6,94 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Função para calcular métricas vocais
+interface CompanyConfig {
+  company_name: string;
+  segment: string;
+  product_description: string;
+  ticket_range: string;
+  sales_cycle: string;
+  icp: {
+    buyer_role: string;
+    main_pains: string[];
+    common_objections: string[];
+    sophistication_level: string;
+  };
+  methodology: string;
+  sales_stages: string[];
+  competencies: string[];
+  tone: string;
+}
+
+const DEFAULT_COMPETENCIES = [
+  'Abertura',
+  'Perguntas de Situação',
+  'Perguntas de Problema',
+  'Perguntas de Implicação',
+  'Perguntas de Necessidade-Benefício',
+  'Tratamento de Objeções',
+  'Fechamento',
+];
+
+const SPIN_CATEGORY_MAP: Record<string, string> = {
+  'Abertura': 'opening',
+  'Perguntas de Situação': 'situation',
+  'Descoberta de Situação': 'situation',
+  'Perguntas de Problema': 'problem',
+  'Identificação de Problemas': 'problem',
+  'Perguntas de Implicação': 'implication',
+  'Amplificação de Implicações': 'implication',
+  'Perguntas de Necessidade-Benefício': 'need_payoff',
+  'Apresentação de Valor': 'need_payoff',
+  'Tratamento de Objeções': 'objection_handling',
+  'Gestão de Objeções': 'objection_handling',
+  'Fechamento': 'closing',
+  'Qualificação': 'situation',
+  'Diagnóstico': 'problem',
+  'Negociação': 'objection_handling',
+  'Proposta': 'need_payoff',
+  'Follow-up': 'closing',
+};
+
+// ─── Voice Metrics ───────────────────────────────────────────────────────────
+
 function calculateVoiceMetrics(messages: any[]) {
   const userMessages = messages.filter(m => m.role === 'user');
   const clientMessages = messages.filter(m => m.role === 'assistant');
-  
+
   const totalUserWords = userMessages.reduce((sum, m) => sum + m.content.split(/\s+/).length, 0);
   const totalClientWords = clientMessages.reduce((sum, m) => sum + m.content.split(/\s+/).length, 0);
-  
-  // Talk/Listen Ratio
+
   const talkListenRatio = totalClientWords > 0 ? totalUserWords / totalClientWords : 0;
-  
-  // Filler words (aproximado)
+
   const fillerWords = ['ééé', 'hmm', 'ahh', 'tipo', 'né', 'então', 'bem', 'assim'];
   const fillerCount = userMessages.reduce((sum, m) => {
     const content = m.content.toLowerCase();
-    return sum + fillerWords.reduce((count, filler) => 
+    return sum + fillerWords.reduce((count, filler) =>
       count + (content.match(new RegExp(filler, 'g')) || []).length, 0
     );
   }, 0);
-  const totalMinutes = userMessages.length > 0 ? userMessages.length / 2 : 1; // Aproximação
+  const totalMinutes = userMessages.length > 0 ? userMessages.length / 2 : 1;
   const fillerWordsPerMinute = fillerCount / totalMinutes;
-  
-  // Speech speed (words per minute)
   const speechSpeedWpm = totalMinutes > 0 ? totalUserWords / totalMinutes : 0;
-  
-  // Longest monologue
+
   const longestMonologue = userMessages.reduce((max, m) => {
     const wordCount = m.content.split(/\s+/).length;
     return wordCount > max ? wordCount : max;
   }, 0);
-  const longestMonologueSeconds = Math.round((longestMonologue / 150) * 60); // Assumindo 150 wpm
-  
+  const longestMonologueSeconds = Math.round((longestMonologue / 150) * 60);
+
   return {
     talk_listen_ratio: parseFloat(talkListenRatio.toFixed(2)),
     filler_words_per_minute: parseFloat(fillerWordsPerMinute.toFixed(2)),
     speech_speed_wpm: Math.round(speechSpeedWpm),
-    longest_monologue_seconds: longestMonologueSeconds
+    longest_monologue_seconds: longestMonologueSeconds,
   };
 }
 
-// Função para gerar insights com IA (mantida para compatibilidade)
-async function generateInsights(evaluations: any[], conversation: string, overallScore: number, apiKey: string) {
-  const insightPrompt = `Com base na análise de competências SPIN Selling a seguir, gere insights estruturados:
+// ─── AI Helpers ──────────────────────────────────────────────────────────────
+
+async function generateInsights(evaluations: any[], overallScore: number, apiKey: string) {
+  const insightPrompt = `Com base na análise de competências a seguir, gere insights estruturados:
 
 SCORE GERAL: ${overallScore}/100
 
@@ -60,152 +105,81 @@ Gere um JSON com a seguinte estrutura:
   "executive_summary": "Resumo executivo de 2-3 frases sobre o desempenho geral",
   "highlights": ["3-5 destaques positivos específicos da sessão"],
   "recommendations": ["3-5 recomendações acionáveis para melhoria"]
-}
+}`;
 
-Seja específico, direto e focado em automação com IA.`;
-
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: 'Você é um especialista em análise de vendas B2B. Retorne apenas JSON válido.' },
-        { role: 'user', content: insightPrompt }
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    console.error('Failed to generate insights, using defaults');
-    return {
-      executive_summary: 'Sessão concluída com sucesso.',
-      highlights: ['Participação ativa na conversa'],
-      recommendations: ['Continue praticando suas habilidades SPIN']
-    };
-  }
-
-  const aiResponse = await response.json();
-  const content = aiResponse.choices[0].message.content;
-  
   try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: 'Você é um especialista em análise de vendas B2B. Retorne apenas JSON válido.' },
+          { role: 'user', content: insightPrompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Failed to generate insights');
+      return { executive_summary: 'Sessão concluída com sucesso.', highlights: ['Participação ativa'], recommendations: ['Continue praticando'] };
+    }
+
+    const aiResponse = await response.json();
+    const content = aiResponse.choices[0].message.content;
     const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
     return JSON.parse(cleanContent);
   } catch {
-    return {
-      executive_summary: 'Sessão concluída com sucesso.',
-      highlights: ['Participação ativa na conversa'],
-      recommendations: ['Continue praticando suas habilidades SPIN']
-    };
+    return { executive_summary: 'Sessão concluída com sucesso.', highlights: ['Participação ativa'], recommendations: ['Continue praticando'] };
   }
 }
 
-// Função para gerar recomendações estruturadas com IA
-async function generateStructuredRecommendations(
-  evaluations: any[], 
-  conversation: string, 
-  overallScore: number, 
-  sessionId: string,
-  apiKey: string,
-  supabase: any
-) {
-  const recommendationsPrompt = `Analise as competências avaliadas e gere recomendações ESTRUTURADAS e PRIORIZADAS para melhoria.
+async function generateStructuredRecommendations(evaluations: any[], overallScore: number, sessionId: string, apiKey: string, supabase: any) {
+  const recommendationsPrompt = `Analise as competências avaliadas e gere recomendações ESTRUTURADAS e PRIORIZADAS.
 
 SCORE GERAL: ${overallScore}/100
 
 COMPETÊNCIAS AVALIADAS:
 ${evaluations.map(e => `- ${e.competency}: ${e.score}/100\n  ${e.feedback}`).join('\n\n')}
 
-Gere um JSON array com 4-6 recomendações seguindo EXATAMENTE esta estrutura:
-
-[
-  {
-    "recommendation_type": "tactical",
-    "priority": "high",
-    "title": "Implementar perguntas de quantificação",
-    "description": "Nas próximas 3 conversas, adicione perguntas que quantifiquem o problema do cliente em termos de tempo, dinheiro ou recursos.",
-    "action_items": [
-      "Pergunte: 'Quantas horas por semana sua equipe gasta nisso?'",
-      "Explore: 'Qual o custo mensal desse processo manual?'",
-      "Mapeie: 'Quantas pessoas estão envolvidas nessa tarefa?'"
-    ],
-    "related_competency": "Perguntas de Situação",
-    "expected_impact": "+20% em descoberta de valor quantificável",
-    "time_to_implement": "Próximas 3 conversas"
-  },
-  {
-    "recommendation_type": "strategic",
-    "priority": "high",
-    "title": "Desenvolver biblioteca de casos de sucesso",
-    "description": "Compile 5 casos de sucesso do seu setor com métricas específicas para usar na abertura e durante objeções.",
-    "action_items": [
-      "Listar 5 clientes com resultados mensuráveis",
-      "Documentar: problema inicial, solução implementada, resultados em %",
-      "Criar roteiro de 30 segundos para cada case"
-    ],
-    "related_competency": "Abertura",
-    "expected_impact": "+30% em credibilidade técnica",
-    "time_to_implement": "1 semana"
-  },
-  {
-    "recommendation_type": "behavioral",
-    "priority": "medium",
-    "title": "Praticar escuta ativa com pausa de 3 segundos",
-    "description": "Desenvolva o hábito de esperar 3 segundos após o cliente terminar de falar antes de responder. Isso demonstra consideração e evita interrupções.",
-    "action_items": [
-      "Conte mentalmente até 3 antes de responder",
-      "Use o tempo para processar o que foi dito",
-      "Reformule a preocupação do cliente antes de argumentar"
-    ],
-    "related_competency": "Tratamento de Objeções",
-    "expected_impact": "+25% em empatia percebida",
-    "time_to_implement": "Hábito de 21 dias"
-  }
-]
+Gere um JSON array com 4-6 recomendações:
+[{
+  "recommendation_type": "tactical"|"strategic"|"behavioral",
+  "priority": "high"|"medium"|"low",
+  "title": "string",
+  "description": "string",
+  "action_items": ["3-4 ações específicas"],
+  "related_competency": "string",
+  "expected_impact": "string com % ou métrica",
+  "time_to_implement": "string"
+}]
 
 REGRAS:
-- recommendation_type: "tactical" (ação imediata, próximas conversas), "strategic" (planejamento 1-4 semanas), "behavioral" (mudança de hábito longo prazo)
-- priority: "high" (score < 70 na competência), "medium" (score 70-85), "low" (aperfeiçoamento de score > 85)
+- priority: "high" (score < 70), "medium" (70-85), "low" (> 85)
 - action_items: 3-4 ações ESPECÍFICAS e MENSURÁVEIS
-- expected_impact: Usar % ou métricas concretas
-- time_to_implement: Ser realista ("imediato", "próximas 3 conversas", "1 semana", "21 dias", etc)
-- Focar nos 2-3 pontos MAIS FRACOS identificados
-- Ser ACIONÁVEL, não genérico ("melhorar comunicação" ❌ vs "perguntar X antes de Y" ✅)
+- Focar nos 2-3 pontos MAIS FRACOS`;
 
-Gere 4-6 recomendações priorizadas por impacto.`;
-
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: 'Você é um especialista em coaching de vendas B2B. Retorne apenas JSON válido.' },
-        { role: 'user', content: recommendationsPrompt }
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    console.error('Failed to generate recommendations');
-    return [];
-  }
-
-  const aiResponse = await response.json();
-  const content = aiResponse.choices[0].message.content;
-  
   try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: 'Você é um especialista em coaching de vendas B2B. Retorne apenas JSON válido.' },
+          { role: 'user', content: recommendationsPrompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) return [];
+
+    const aiResponse = await response.json();
+    const content = aiResponse.choices[0].message.content;
     const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
     const recommendations = JSON.parse(cleanContent);
-    
-    // Salvar recomendações no banco
-    const recommendationInserts = recommendations.map((rec: any) => ({
+
+    const inserts = recommendations.map((rec: any) => ({
       session_id: sessionId,
       recommendation_type: rec.recommendation_type,
       priority: rec.priority,
@@ -214,25 +188,92 @@ Gere 4-6 recomendações priorizadas por impacto.`;
       action_items: rec.action_items,
       related_competency: rec.related_competency,
       expected_impact: rec.expected_impact,
-      time_to_implement: rec.time_to_implement
+      time_to_implement: rec.time_to_implement,
     }));
 
-    const { error: insertError } = await supabase
-      .from('session_recommendations')
-      .insert(recommendationInserts);
+    const { error } = await supabase.from('session_recommendations').insert(inserts);
+    if (error) console.error('Error inserting recommendations:', error);
 
-    if (insertError) {
-      console.error('Error inserting recommendations:', insertError);
-      return [];
-    }
-
-    console.log(`Generated ${recommendations.length} structured recommendations`);
     return recommendations;
   } catch (error) {
-    console.error('Error parsing recommendations:', error);
+    console.error('Error generating recommendations:', error);
     return [];
   }
 }
+
+// ─── Dynamic Evaluation Prompt Builder ───────────────────────────────────────
+
+function buildEvaluationPrompt(
+  config: CompanyConfig | null,
+  persona: any,
+  session: any,
+  conversation: string,
+  criteriaByCompetency: Record<string, any[]>
+): string {
+  const competencies = config?.competencies?.length ? config.competencies : DEFAULT_COMPETENCIES;
+  const methodology = config?.methodology || 'SPIN';
+  const methodologyLabel = methodology === 'Nenhuma' ? 'consultative sales' : methodology;
+
+  const meetingTypeLabels: Record<string, string> = {
+    prospecting: 'Prospecção', prospection: 'Prospecção',
+    discovery: 'Descoberta', presentation: 'Apresentação de Solução',
+    negotiation: 'Negociação',
+  };
+
+  const competencyList = competencies.map((c, i) => {
+    const criteria = criteriaByCompetency[c] || [];
+    const criteriaSection = criteria.length > 0
+      ? criteria.map((cr: any, idx: number) => `     ${idx + 1}. ${cr.criterion_name} (${cr.criterion_key}): ${cr.evaluation_guide}`).join('\n')
+      : '     (avaliar de forma geral)';
+    return `${i + 1}. ${c} (0-100):\n${criteriaSection}`;
+  }).join('\n\n');
+
+  const contextSection = config
+    ? `CONTEXTO DA EMPRESA:
+- Produto: ${config.product_description}
+- Segmento: ${config.segment}
+- Ticket: ${config.ticket_range}
+- Ciclo: ${config.sales_cycle}
+- ICP: ${config.icp?.buyer_role || 'Comprador'} com dores: ${(config.icp?.main_pains || []).join(', ')}
+- Tom esperado: ${config.tone || 'profissional'}`
+    : `CONTEXTO: Vendas B2B de automação com IA`;
+
+  return `Você é um avaliador especializado em ${methodologyLabel} para vendas B2B.
+
+${contextSection}
+
+CONTEXTO DA SESSÃO:
+- Tipo de reunião: ${meetingTypeLabels[session.meeting_type] || session.meeting_type}
+- Persona: ${persona.name} (${persona.difficulty})
+- Setor: ${persona.sector}
+
+COMPETÊNCIAS A AVALIAR (score 0-100 cada):
+
+${competencyList}
+
+Para cada competência, retorne:
+- competency: nome exato da competência
+- score: 0-100
+- feedback: observação específica em português sobre o que o vendedor fez ou deixou de fazer
+- sub_scores: objeto com sub-critérios e scores 0-100
+- sub_scores_feedback: objeto com feedback curto para cada sub-critério
+- criterion_approvals: objeto com "approved" (>=70), "neutral" (50-69), "rejected" (<50) para cada sub-critério
+- ai_suggestions: array com 3-4 sugestões práticas específicas
+- spin_category: categoria SPIN se aplicável (opening, situation, problem, implication, need_payoff, objection_handling, closing) ou null
+
+REGRAS:
+- Seja RIGOROSO: 90+ só para excelência excepcional
+- Feedback ACIONÁVEL: não "melhorar comunicação", mas "pergunte X antes de Y"
+- Avalie APENAS o VENDEDOR, não o comprador
+- Responda em português do Brasil
+
+Retorne APENAS um JSON array com TODAS as ${competencies.length} competências.
+
+CONVERSA:
+${conversation}`;
+}
+
+// ─── Main Handler ────────────────────────────────────────────────────────────
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -240,8 +281,8 @@ serve(async (req) => {
   }
 
   try {
-    const { sessionId } = await req.json();
-    
+    const { sessionId, organization_id } = await req.json();
+
     if (!sessionId) {
       throw new Error('sessionId is required');
     }
@@ -250,241 +291,78 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Buscar sessão, mensagens e critérios de avaliação
-    const { data: session, error: sessionError } = await supabase
-      .from('roleplay_sessions')
-      .select(`
-        *,
-        personas (
-          name,
-          role,
-          sector,
-          difficulty,
-          pain_points,
-          objection_patterns,
-          automation_context
-        )
-      `)
-      .eq('id', sessionId)
-      .single();
+    // Fetch session with persona, messages, criteria, and optionally org config in parallel
+    const [sessionResult, messagesResult, criteriaResult, orgResult] = await Promise.all([
+      supabase
+        .from('roleplay_sessions')
+        .select('*, personas (name, role, sector, difficulty, pain_points, objection_patterns, automation_context)')
+        .eq('id', sessionId)
+        .single(),
+      supabase
+        .from('session_messages')
+        .select('role, content')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('competency_criteria')
+        .select('*')
+        .order('competency_name', { ascending: true }),
+      organization_id
+        ? supabase.from('organizations').select('company_config').eq('id', organization_id).single()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
 
-    if (sessionError) throw sessionError;
+    if (sessionResult.error) throw sessionResult.error;
+    if (messagesResult.error) throw messagesResult.error;
 
-    // Buscar critérios detalhados da nova tabela
-    const { data: criteria, error: criteriaError } = await supabase
-      .from('competency_criteria')
-      .select('*')
-      .order('competency_name', { ascending: true });
-
-    if (criteriaError) {
-      console.error('Error fetching criteria:', criteriaError);
-    }
-
-    // Organizar critérios por competência
-    const criteriaByCompetency = (criteria || []).reduce((acc: any, c: any) => {
-      if (!acc[c.competency_name]) acc[c.competency_name] = [];
-      acc[c.competency_name].push(c);
-      return acc;
-    }, {});
-
-    const { data: messages, error: messagesError } = await supabase
-      .from('session_messages')
-      .select('role, content')
-      .eq('session_id', sessionId)
-      .order('created_at', { ascending: true });
-
-    if (messagesError) throw messagesError;
+    const session = sessionResult.data;
+    const messages = messagesResult.data;
+    const persona = session.personas;
+    const companyConfig = orgResult.data?.company_config as CompanyConfig | null;
 
     if (!messages || messages.length === 0) {
       throw new Error('No messages found for session');
     }
 
-    console.log(`Found ${messages.length} messages for session ${sessionId}`);
+    console.log(`[evaluate] ${messages.length} messages, org: ${organization_id || 'none'}, methodology: ${companyConfig?.methodology || 'SPIN (default)'}`);
 
-    // Formatar conversa
+    // Organize criteria by competency
+    const criteriaByCompetency = (criteriaResult.data || []).reduce((acc: any, c: any) => {
+      if (!acc[c.competency_name]) acc[c.competency_name] = [];
+      acc[c.competency_name].push(c);
+      return acc;
+    }, {});
+
+    // Build conversation text
     const conversation = messages
       .map(m => `${m.role === 'user' ? 'Vendedor' : 'Cliente'}: ${m.content}`)
       .join('\n\n');
 
-    console.log(`Conversation preview: ${conversation.substring(0, 200)}...`);
+    // Build dynamic evaluation prompt
+    const evaluationPrompt = buildEvaluationPrompt(companyConfig, persona, session, conversation, criteriaByCompetency);
 
-    const persona = session.personas;
-    const meetingTypeLabels: Record<string, string> = {
-      prospecting: 'Prospecção',
-      discovery: 'Descoberta',
-      presentation: 'Apresentação de Solução',
-      negotiation: 'Negociação'
-    };
-
-    // Gerar seções de critérios detalhados para o prompt
-    const competencyNames = [
-      'Abertura',
-      'Perguntas de Situação', 
-      'Perguntas de Problema',
-      'Perguntas de Implicação',
-      'Perguntas de Necessidade-Benefício',
-      'Tratamento de Objeções',
-      'Fechamento'
-    ];
-
-    const criteriaPromptSections = competencyNames.map(compName => {
-      const compCriteria = criteriaByCompetency[compName] || [];
-      if (compCriteria.length === 0) return '';
-      
-      return `\n${compName.toUpperCase()}:
-${compCriteria.map((c: any, idx: number) => 
-  `   ${idx + 1}. ${c.criterion_name} (${c.criterion_key}): ${c.evaluation_guide}`
-).join('\n')}`;
-    }).filter(Boolean).join('\n');
-
-    // System prompt focado em SPIN Selling + Automação IA com critérios detalhados
-    const systemPrompt = `Você é um avaliador especializado em SPIN Selling para vendas B2B de soluções de AUTOMAÇÃO COM IA.
-
-CONTEXTO:
-- Tipo de reunião: ${meetingTypeLabels[session.meeting_type] || session.meeting_type}
-- Persona: ${persona.name} (${persona.difficulty})
-- Setor: ${persona.sector}
-- Foco: Vendas de soluções de automação inteligente
-
-CRITÉRIOS DETALHADOS DE AVALIAÇÃO:
-${criteriaPromptSections}
-
-Analise a conversa e avalie as 7 competências seguindo critérios SPIN:
-
-1. ABERTURA E RAPPORT (0-100):
-   - Conexão inicial (0-25): Empatia, tom adequado
-   - Credibilidade (0-25): Casos de sucesso, autoridade em automação IA
-   - Agenda clara (0-25): Expectativas alinhadas, tempo respeitado
-   - Value proposition inicial (0-25): Gancho de valor mencionado
-
-2. DESCOBERTA DE SITUAÇÃO (0-100):
-   - Mapeamento de processos manuais (0-30): "Como funciona seu processo atual de X?"
-   - Identificação de volume/escala (0-25): "Quantas horas/semana sua equipe gasta nisso?"
-   - Contexto tecnológico (0-25): Ferramentas atuais, integrações necessárias
-   - Stakeholders envolvidos (0-20): Quem decide? Quem usa?
-
-3. IDENTIFICAÇÃO DE PROBLEMAS (0-100):
-   - Exploração de ineficiências (0-30): Gargalos, erros humanos, lentidão
-   - Dores latentes descobertas (0-25): Problemas que o cliente não verbalizou
-   - Frustração validada (0-25): Empatia com situação atual
-   - Priorização (0-20): Qual problema é mais urgente?
-
-4. AMPLIFICAÇÃO DE IMPLICAÇÕES (0-100):
-   - Quantificação de custos (0-30): "Quanto você perde por mês com esse problema?"
-   - Impacto no negócio (0-25): Efeito em receita, satisfação, competitividade
-   - Urgência criada (0-25): "O que acontece se não resolver isso?"
-   - Risco de inação (0-20): Consequências de adiar decisão
-
-5. APRESENTAÇÃO DE VALOR (0-100):
-   - ROI articulado (0-30): Economia de tempo/dinheiro com automação
-   - Benefícios tangíveis (0-25): Casos de uso específicos
-   - Diferenciação (0-25): Por que nossa IA vs. concorrentes?
-   - Fit solução-problema (0-20): Conexão clara entre dor e solução
-
-6. GESTÃO DE OBJEÇÕES TÉCNICAS (0-100):
-   - Escuta ativa (0-20): Deixou cliente expressar preocupação completamente
-   - Validação (0-20): "Entendo sua preocupação com X..."
-   - Técnicas persuasivas (0-30): Feel-felt-found, prova social, dados
-   - Transformação em benefício (0-30): Objeção virou argumento de venda
-
-7. FECHAMENTO E PRÓXIMOS PASSOS (0-100):
-   - Trial close (0-25): "Faz sentido até aqui?"
-   - Proposta de ação (0-30): Demo, trial, reunião técnica
-   - Comprometimento obtido (0-25): Cliente concordou com próximo passo?
-   - Follow-up estruturado (0-20): Data/hora definida
-
-REGRAS DE AVALIAÇÃO:
-- Seja RIGOROSO: 90+ só para excelência excepcional
-- Considere o tipo de reunião: Prospecção tem mais Situação/Problema, Negociação tem mais Objeções/Fechamento
-- Dê feedback ACIONÁVEL: não "melhorar comunicação", mas "pergunte 'Quanto tempo sua equipe gasta nisso?' para quantificar"
-- SEMPRE mencione automação com IA no contexto
-- Forneça 3-4 sugestões práticas específicas por competência
-- Para cada sub_score, forneça feedback específico de 5-10 palavras em "sub_scores_feedback"
-
-Retorne um JSON array com TODAS as 7 competências EXATAMENTE neste formato:
-[
-  {
-    "competency": "Abertura",
-    "score": 85,
-    "sub_scores": {
-      "credibilidade": 90,
-      "gancho": 85,
-      "alinhamento": 80
-    },
-    "sub_scores_feedback": {
-      "credibilidade": "Excelente conhecimento técnico demonstrado",
-      "gancho": "Usou LGPD como gancho efetivo",
-      "alinhamento": "Expectativas bem definidas"
-    },
-    "criterion_approvals": {
-      "credibilidade": "approved",
-      "gancho": "approved",
-      "alinhamento": "rejected"
-    },
-    "feedback": "Excelente abertura! Estabeleceu credibilidade técnica e usou LGPD como gancho relevante. Alinhamento poderia ser mais detalhado.",
-    "ai_suggestions": [
-      "Mencione case específico do setor logo na abertura",
-      "Defina agenda: 'Vamos focar em X nos próximos 30 min, ok?'",
-      "Use estatística de impacto: '80% das empresas sofrem com...'"
-    ],
-    "spin_category": "opening"
-  }
-]
-
-REGRAS PARA criterion_approvals:
-- "approved": Critério foi executado com excelência (score >= 70)
-- "rejected": Critério não foi bem executado ou ausente (score < 50)  
-- "neutral": Critério parcialmente executado (score 50-69)
-
-Para cada criterion_key da competência, retorne o status de aprovação baseado na análise.
-
-IMPORTANTE: 
-- Gere TODAS as 7 competências com sub_scores, sub_scores_feedback E criterion_approvals completos
-- Use os criterion_keys exatos definidos nos critérios detalhados acima
-- Seja consistente entre sub_scores e criterion_approvals (mesmos keys)
-
-CONVERSA:
-${conversation}`;
-
-    // Chamar Lovable AI para avaliação
+    // Call AI
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
-    }
+    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: 'Você é um avaliador SPIN Selling para vendas B2B de automação com IA. Analise a conversa fornecida e retorne APENAS o JSON array com as 7 competências avaliadas. Não adicione explicações ou texto adicional.' },
-          { role: 'user', content: systemPrompt }
+          { role: 'system', content: 'Você é um avaliador de vendas B2B. Analise a conversa e retorne APENAS o JSON array com as competências avaliadas. Sem texto adicional.' },
+          { role: 'user', content: evaluationPrompt },
         ],
       }),
     });
 
     if (response.status === 429) {
-      return new Response(JSON.stringify({ 
-        error: 'Rate limit exceeded. Please try again later.' 
-      }), {
-        status: 429,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded.' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-
     if (response.status === 402) {
-      return new Response(JSON.stringify({ 
-        error: 'Insufficient credits. Please add credits to your workspace.' 
-      }), {
-        status: 402,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(JSON.stringify({ error: 'Insufficient credits.' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-
     if (!response.ok) {
       const errorText = await response.text();
       console.error('AI API error:', response.status, errorText);
@@ -494,142 +372,91 @@ ${conversation}`;
     const aiResponse = await response.json();
     const content = aiResponse.choices[0].message.content;
 
-    // Parse JSON do conteúdo
     let evaluations;
     try {
-      // Remover markdown code blocks se existirem
       const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
       evaluations = JSON.parse(cleanContent);
-    } catch (parseError) {
+    } catch {
       console.error('Failed to parse AI response:', content);
       throw new Error('Invalid evaluation format from AI');
     }
 
-    // Mapear nomes de competências para spin_category válidos
-    const competencyToSpinCategory: Record<string, string> = {
-      'Abertura': 'opening',
-      'Perguntas de Situação': 'situation',
-      'Descoberta de Situação': 'situation',
-      'Perguntas de Problema': 'problem',
-      'Identificação de Problemas': 'problem',
-      'Perguntas de Implicação': 'implication',
-      'Amplificação de Implicações': 'implication',
-      'Perguntas de Necessidade-Benefício': 'need_payoff',
-      'Apresentação de Valor': 'need_payoff',
-      'Tratamento de Objeções': 'objection_handling',
-      'Gestão de Objeções': 'objection_handling',
-      'Fechamento': 'closing'
-    };
-
-    // Salvar competências no banco (converter scores de 0-100 para 0-10)
+    // Save competency scores
     const competencyInserts = evaluations.map((comp: any) => ({
       session_id: sessionId,
       competency_name: comp.competency,
-      score: Math.round(comp.score / 10), // Convert 0-100 to 0-10
+      score: Math.round(comp.score / 10), // 0-100 → 0-10
       feedback: comp.feedback,
-      spin_category: competencyToSpinCategory[comp.competency] || null,
-      sub_scores: comp.sub_scores ? Object.fromEntries(
-        Object.entries(comp.sub_scores).map(([k, v]) => [k, Math.round(Number(v) / 10)]) // Convert 0-100 to 0-10
-      ) : null,
+      spin_category: comp.spin_category || SPIN_CATEGORY_MAP[comp.competency] || null,
+      sub_scores: comp.sub_scores
+        ? Object.fromEntries(Object.entries(comp.sub_scores).map(([k, v]) => [k, Math.round(Number(v) / 10)]))
+        : null,
       sub_scores_feedback: comp.sub_scores_feedback || null,
       ai_suggestions: comp.ai_suggestions || null,
-      criterion_approvals: comp.criterion_approvals || null, // Novo campo
+      criterion_approvals: comp.criterion_approvals || null,
     }));
 
-    const { error: insertError } = await supabase
-      .from('competency_scores')
-      .insert(competencyInserts);
-
+    const { error: insertError } = await supabase.from('competency_scores').insert(competencyInserts);
     if (insertError) {
       console.error('Error inserting competency scores:', insertError);
       throw insertError;
     }
 
-    // Calcular overall score (média das 7 competências em escala 0-100)
-    const overallScore = Math.round(
-      evaluations.reduce((sum: number, comp: any) => sum + comp.score, 0) / evaluations.length
-    );
+    // Overall score
+    const overallScore = Math.round(evaluations.reduce((sum: number, c: any) => sum + c.score, 0) / evaluations.length);
 
-    // Calcular métricas vocais
+    // Voice metrics
     const voiceMetrics = calculateVoiceMetrics(messages);
 
-    // Gerar insights com IA (mantido para retrocompatibilidade)
-    const insights = await generateInsights(evaluations, conversation, overallScore, LOVABLE_API_KEY);
+    // Generate insights and recommendations in parallel
+    const [insights] = await Promise.all([
+      generateInsights(evaluations, overallScore, LOVABLE_API_KEY),
+      generateStructuredRecommendations(evaluations, overallScore, sessionId, LOVABLE_API_KEY, supabase),
+    ]);
 
-    // Gerar recomendações estruturadas (nova funcionalidade)
-    await generateStructuredRecommendations(
-      evaluations,
-      conversation,
-      overallScore,
-      sessionId,
-      LOVABLE_API_KEY,
-      supabase
-    );
-
-    // Atualizar sessão com overall_score, voice_metrics e insights
+    // Update session
     const { error: updateError } = await supabase
       .from('roleplay_sessions')
-      .update({ 
+      .update({
         overall_score: overallScore,
         voice_metrics: voiceMetrics,
         highlights: insights.highlights,
         recommendations: insights.recommendations,
-        executive_summary: insights.executive_summary
+        executive_summary: insights.executive_summary,
       })
       .eq('id', sessionId);
 
-    if (updateError) {
-      console.error('Error updating session score:', updateError);
-      throw updateError;
-    }
+    if (updateError) throw updateError;
 
-    // Verificar e desbloquear achievements
-    const userId = session.user_id;
+    // Check achievements
     try {
-      await supabase.rpc('check_and_unlock_achievements', {
-        _user_id: userId,
-        _session_id: sessionId
-      });
-      console.log(`Achievements checked for user ${userId}`);
-    } catch (achievementError) {
-      console.error('Error checking achievements:', achievementError);
-      // Não falhar a request se achievements falhar
+      await supabase.rpc('check_and_unlock_achievements', { _user_id: session.user_id, _session_id: sessionId });
+    } catch (e) {
+      console.error('Achievement check failed:', e);
     }
 
-    // Buscar achievements desbloqueados nesta sessão (recentemente)
     const { data: newAchievements } = await supabase
       .from('user_achievements')
-      .select(`
-        achievement_id,
-        unlocked_at
-      `)
-      .eq('user_id', userId)
-      .gte('unlocked_at', new Date(Date.now() - 5000).toISOString()); // últimos 5 segundos
+      .select('achievement_id, unlocked_at')
+      .eq('user_id', session.user_id)
+      .gte('unlocked_at', new Date(Date.now() - 5000).toISOString());
 
-    console.log(`Session ${sessionId} evaluated. Overall score: ${overallScore}`);
+    console.log(`[evaluate] Session ${sessionId} done. Score: ${overallScore}, Competencies: ${evaluations.length}`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         overallScore,
         competencies: evaluations,
-        newAchievements: newAchievements?.map(a => a.achievement_id) || []
+        newAchievements: newAchievements?.map(a => a.achievement_id) || [],
       }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     console.error('Error in evaluate-competencies:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
