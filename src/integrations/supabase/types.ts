@@ -91,6 +91,7 @@ export type Database = {
           criterion_approvals: Json | null
           feedback: string | null
           id: string
+          organization_id: string | null
           score: number
           session_id: string
           spin_category: string | null
@@ -104,6 +105,7 @@ export type Database = {
           criterion_approvals?: Json | null
           feedback?: string | null
           id?: string
+          organization_id?: string | null
           score: number
           session_id: string
           spin_category?: string | null
@@ -117,6 +119,7 @@ export type Database = {
           criterion_approvals?: Json | null
           feedback?: string | null
           id?: string
+          organization_id?: string | null
           score?: number
           session_id?: string
           spin_category?: string | null
@@ -125,6 +128,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "competency_scores_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "competency_scores_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
@@ -132,6 +142,71 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      organization_members: {
+        Row: {
+          created_at: string | null
+          id: string
+          organization_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          organization_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          organization_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          company_config: Json | null
+          created_at: string | null
+          custom_domain: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          company_config?: Json | null
+          created_at?: string | null
+          custom_domain?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          company_config?: Json | null
+          created_at?: string | null
+          custom_domain?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       personas: {
         Row: {
@@ -146,6 +221,7 @@ export type Database = {
           id: string
           name: string
           objection_patterns: Json | null
+          organization_id: string | null
           pain_points: Json | null
           personality_traits: Json | null
           role: string
@@ -164,6 +240,7 @@ export type Database = {
           id?: string
           name: string
           objection_patterns?: Json | null
+          organization_id?: string | null
           pain_points?: Json | null
           personality_traits?: Json | null
           role: string
@@ -182,13 +259,22 @@ export type Database = {
           id?: string
           name?: string
           objection_patterns?: Json | null
+          organization_id?: string | null
           pain_points?: Json | null
           personality_traits?: Json | null
           role?: string
           sector?: string
           voice_provider?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "personas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -196,6 +282,7 @@ export type Database = {
           created_at: string | null
           full_name: string
           id: string
+          organization_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -203,6 +290,7 @@ export type Database = {
           created_at?: string | null
           full_name: string
           id: string
+          organization_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -210,9 +298,18 @@ export type Database = {
           created_at?: string | null
           full_name?: string
           id?: string
+          organization_id?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       roleplay_sessions: {
         Row: {
@@ -223,6 +320,7 @@ export type Database = {
           id: string
           meeting_type: string
           method: string
+          organization_id: string | null
           overall_score: number | null
           persona_id: string
           recommendations: string[] | null
@@ -239,6 +337,7 @@ export type Database = {
           id?: string
           meeting_type: string
           method: string
+          organization_id?: string | null
           overall_score?: number | null
           persona_id: string
           recommendations?: string[] | null
@@ -255,6 +354,7 @@ export type Database = {
           id?: string
           meeting_type?: string
           method?: string
+          organization_id?: string | null
           overall_score?: number | null
           persona_id?: string
           recommendations?: string[] | null
@@ -264,6 +364,13 @@ export type Database = {
           voice_metrics?: Json | null
         }
         Relationships: [
+          {
+            foreignKeyName: "roleplay_sessions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "roleplay_sessions_persona_id_fkey"
             columns: ["persona_id"]
@@ -278,6 +385,7 @@ export type Database = {
           content: string
           created_at: string | null
           id: string
+          organization_id: string | null
           role: string
           session_id: string
         }
@@ -285,6 +393,7 @@ export type Database = {
           content: string
           created_at?: string | null
           id?: string
+          organization_id?: string | null
           role: string
           session_id: string
         }
@@ -292,10 +401,18 @@ export type Database = {
           content?: string
           created_at?: string | null
           id?: string
+          organization_id?: string | null
           role?: string
           session_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "session_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "session_messages_session_id_fkey"
             columns: ["session_id"]
@@ -486,22 +603,33 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          organization_id: string | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
           created_at?: string | null
           id?: string
+          organization_id?: string | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
           created_at?: string | null
           id?: string
+          organization_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -544,11 +672,20 @@ export type Database = {
       }
       cleanup_abandoned_sessions: { Args: never; Returns: undefined }
       cleanup_abandoned_voice_sessions: { Args: never; Returns: undefined }
+      get_user_organization_id: { Args: { _user_id: string }; Returns: string }
+      has_org_role: {
+        Args: { _org_id: string; _role: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_org_member: {
+        Args: { _org_id: string; _user_id: string }
         Returns: boolean
       }
     }

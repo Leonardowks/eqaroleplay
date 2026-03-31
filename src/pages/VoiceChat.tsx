@@ -85,7 +85,7 @@ const VoiceChat = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const isReconnectingRef = useRef(false);
   const lastActivityRef = useRef<number>(Date.now());
-  const activityCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const activityCheckIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isSessionEndedRef = useRef(false);
 
   // Enhanced audio player (se habilitado)
