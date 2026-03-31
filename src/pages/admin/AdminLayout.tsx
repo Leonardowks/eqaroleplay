@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AdminSidebar } from '@/components/AdminSidebar';
 import Header from '@/components/Header';
+import BuildInfo from '@/components/BuildInfo';
 
 const AdminLayout = () => {
   return (
@@ -16,6 +17,7 @@ const AdminLayout = () => {
           <main className="flex-1 p-8">
             <Outlet />
           </main>
+          <BuildInfo />
         </div>
       </div>
     </SidebarProvider>
