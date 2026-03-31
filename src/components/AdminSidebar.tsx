@@ -1,4 +1,4 @@
-import { Users, BarChart3, MessageSquare, Shield, Settings, Palette, UserCircle } from 'lucide-react';
+import { Users, BarChart3, MessageSquare, Shield, Settings, Palette, UserCircle, Rocket } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import {
   Sidebar,
