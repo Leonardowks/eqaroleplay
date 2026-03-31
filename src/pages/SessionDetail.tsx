@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DetailedFeedback from '@/components/DetailedFeedback';
 import ActionPlanSection from '@/components/ActionPlanSection';
+import { useTenantContext } from '@/contexts/TenantContext';
 
 interface Message {
   id: string;
@@ -37,6 +38,7 @@ const SessionDetail = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { companyConfig } = useTenantContext();
 
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -134,6 +136,8 @@ const SessionDetail = () => {
       'demo': 'Demonstração',
       'negotiation': 'Negociação',
       'objection_handling': 'Tratamento de Objeções',
+      'prospection': 'Prospecção',
+      'presentation': 'Apresentação',
     };
     return labels[type] || type;
   };
@@ -184,9 +188,14 @@ const SessionDetail = () => {
                   {session.personas?.role} - {session.personas?.company}
                 </p>
               </div>
-              <Badge variant={session.method === 'voice' ? 'default' : 'secondary'}>
-                {session.method === 'voice' ? 'Voz' : 'Texto'}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={session.method === 'voice' ? 'default' : 'secondary'}>
+                  {session.method === 'voice' ? 'Voz' : 'Texto'}
+                </Badge>
+                <Badge variant="outline">
+                  {companyConfig.methodology}
+                </Badge>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
@@ -232,11 +241,11 @@ const SessionDetail = () => {
             <>
               {/* Feedback Detalhado por Competência */}
               <div className="space-y-6">
-                <h2 className="text-2xl font-semibold">Avaliação Detalhada SPIN Selling</h2>
+                <h2 className="text-2xl font-semibold">Avaliação Detalhada — {companyConfig.methodology}</h2>
               <DetailedFeedback 
                 competencies={competencies.map(c => ({
                   competency: c.competency_name,
-                  score: c.score * 10, // Convert 0-10 to 0-100 for display
+                  score: c.score * 10,
                   feedback: c.feedback || '',
                   spin_category: c.spin_category || undefined,
                   sub_scores: c.sub_scores ? Object.fromEntries(
@@ -251,7 +260,7 @@ const SessionDetail = () => {
               />
               </div>
 
-              {/* Action Plan Section - Plano de Ação Estruturado */}
+              {/* Action Plan Section */}
               {recommendations.length > 0 && (
                 <div className="mt-8">
                   <ActionPlanSection recommendations={recommendations} />

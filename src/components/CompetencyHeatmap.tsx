@@ -9,39 +9,25 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
-interface HeatmapData {
-  meetingType: string;
-  situation?: number;
-  problem?: number;
-  implication?: number;
-  need_payoff?: number;
-}
-
 interface CompetencyHeatmapProps {
-  data: HeatmapData[];
+  data: Record<string, any>[];
+  competencyNames?: string[];
 }
 
-const CompetencyHeatmap = ({ data }: CompetencyHeatmapProps) => {
+const CompetencyHeatmap = ({ data, competencyNames }: CompetencyHeatmapProps) => {
   const meetingTypeLabels: Record<string, string> = {
     prospecting: 'Prospecção',
+    prospection: 'Prospecção',
     discovery: 'Descoberta',
     presentation: 'Apresentação',
     negotiation: 'Negociação',
   };
 
-  const competencyKeys = [
-    'situation',
-    'problem',
-    'implication',
-    'need_payoff',
-  ];
-
-  const competencyLabels: Record<string, string> = {
-    situation: 'Situação',
-    problem: 'Problema',
-    implication: 'Implicação',
-    need_payoff: 'Valor',
-  };
+  // Derive competency keys from data or props
+  const competencyKeys = competencyNames || 
+    Array.from(new Set(data.flatMap(row => 
+      Object.keys(row).filter(k => k !== 'meetingType')
+    )));
 
   const getScoreColor = (score?: number) => {
     if (!score) return 'bg-muted/30 text-muted-foreground';
@@ -71,8 +57,8 @@ const CompetencyHeatmap = ({ data }: CompetencyHeatmapProps) => {
             <TableRow>
               <TableHead className="font-semibold">Tipo de Reunião</TableHead>
               {competencyKeys.map((key) => (
-                <TableHead key={key} className="text-center font-semibold">
-                  {competencyLabels[key]}
+                <TableHead key={key} className="text-center font-semibold text-xs">
+                  {key}
                 </TableHead>
               ))}
             </TableRow>
@@ -84,7 +70,7 @@ const CompetencyHeatmap = ({ data }: CompetencyHeatmapProps) => {
                   {meetingTypeLabels[row.meetingType] || row.meetingType}
                 </TableCell>
                 {competencyKeys.map((key) => {
-                  const score = row[key as keyof HeatmapData] as number | undefined;
+                  const score = row[key] as number | undefined;
                   return (
                     <TableCell
                       key={key}

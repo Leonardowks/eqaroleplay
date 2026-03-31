@@ -44,7 +44,7 @@ const Auth = () => {
         
         toast({
           title: "Login bem-sucedido!",
-          description: "Bem-vindo de volta ao EQA Roleplay.",
+          description: "Bem-vindo de volta!",
         });
         navigate('/dashboard');
       } else {
