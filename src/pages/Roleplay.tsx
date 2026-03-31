@@ -13,6 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { useTenantContext } from '@/contexts/TenantContext';
 
 interface Persona {
   id: string;
@@ -26,9 +29,11 @@ interface Persona {
 
 const Roleplay = () => {
   const navigate = useNavigate();
+  const { companyConfig } = useTenantContext();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [meetingType, setMeetingType] = useState('prospection');
+  const [selectedStage, setSelectedStage] = useState<string>(companyConfig.sales_stages[0] || '');
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +47,12 @@ const Roleplay = () => {
       loadPersonas();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (companyConfig.sales_stages.length > 0 && !selectedStage) {
+      setSelectedStage(companyConfig.sales_stages[0]);
+    }
+  }, [companyConfig.sales_stages]);
 
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -114,6 +125,7 @@ const Roleplay = () => {
         personaName: selectedPersona.name,
         meetingType,
         method,
+        selectedStage,
       },
     });
   };
@@ -126,9 +138,30 @@ const Roleplay = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Iniciar Roleplay</h1>
           <p className="text-muted-foreground">
-            Escolha uma persona e tipo de reunião para começar seu treinamento.
+            Metodologia: {companyConfig.methodology} • Escolha uma persona e tipo de reunião para começar seu treinamento.
           </p>
         </div>
+
+        {/* Sales Stage Selector */}
+        {companyConfig.sales_stages.length > 0 && (
+          <Card className="p-6 mb-8 bg-card border-border">
+            <h2 className="text-xl font-bold mb-4">Etapa do Processo Comercial</h2>
+            <RadioGroup
+              value={selectedStage}
+              onValueChange={setSelectedStage}
+              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3"
+            >
+              {companyConfig.sales_stages.map((stage) => (
+                <div key={stage} className="flex items-center space-x-2">
+                  <RadioGroupItem value={stage} id={`stage-${stage}`} />
+                  <Label htmlFor={`stage-${stage}`} className="cursor-pointer text-sm">
+                    {stage}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </Card>
+        )}
 
         {/* Meeting Type Selector */}
         <Card className="p-6 mb-8 bg-card border-border">
@@ -195,6 +228,9 @@ const Roleplay = () => {
             <h2 className="text-2xl font-bold mb-4 text-center">
               Persona selecionada: {selectedPersona.name}
             </h2>
+            <p className="text-center mb-2 opacity-90">
+              Etapa: {selectedStage}
+            </p>
             <p className="text-center mb-6 opacity-90">
               Escolha como você quer iniciar o roleplay
             </p>

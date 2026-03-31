@@ -9,12 +9,12 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import SPINEvolutionChart from '@/components/SPINEvolutionChart';
-import CompetencyHeatmap from '@/components/CompetencyHeatmap';
 import KPICards from '@/components/KPICards';
 import { generatePerformanceReport } from '@/utils/pdfGenerator';
 import { generateTechnicalDocumentation } from '@/utils/technicalDocGenerator';
 import { FileText, Download } from 'lucide-react';
+import { useTenantContext } from '@/contexts/TenantContext';
+import { useBranding } from '@/contexts/BrandingContext';
 
 // Lazy load chart component to reduce initial bundle
 const CompetencyChart = lazy(() => import('@/components/CompetencyChart'));
@@ -22,6 +22,8 @@ const CompetencyChart = lazy(() => import('@/components/CompetencyChart'));
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { companyConfig, organization } = useTenantContext();
+  const { branding } = useBranding();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [isCleaningUp, setIsCleaningUp] = useState(false);
@@ -38,7 +40,7 @@ const Dashboard = () => {
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
   const [competencyData, setCompetencyData] = useState<any[]>([]);
   const [activeSessionsCount, setActiveSessionsCount] = useState(0);
-  const [spinEvolution, setSpinEvolution] = useState<any[]>([]);
+  const [competencyEvolution, setCompetencyEvolution] = useState<any[]>([]);
   const [heatmapData, setHeatmapData] = useState<any[]>([]);
   const [generatingReport, setGeneratingReport] = useState(false);
 
@@ -96,12 +98,10 @@ const Dashboard = () => {
       const avgDuration = totalTime / totalSessions || 0;
       const avgScore = sessions.reduce((acc, s) => acc + (s.overall_score || 0), 0) / totalSessions || 0;
       
-      // Calculate best and worst scores
       const scores = sessions.map(s => s.overall_score || 0).filter(s => s > 0);
       const bestScore = scores.length > 0 ? Math.max(...scores) : 0;
       const worstScore = scores.length > 0 ? Math.min(...scores) : 0;
       
-      // Calculate score trend (comparing last 5 sessions to previous 5)
       const sortedByDate = [...sessions].sort((a, b) => 
         new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime()
       );
@@ -144,7 +144,6 @@ const Dashboard = () => {
     if (!competencyScores || competencyScores.length === 0) {
       setCompetencyData([]);
     } else {
-      // Group by competency_name and calculate average
       const grouped = competencyScores.reduce((acc, item) => {
         if (!acc[item.competency_name]) {
           acc[item.competency_name] = [];
@@ -153,7 +152,6 @@ const Dashboard = () => {
         return acc;
       }, {} as Record<string, number[]>);
 
-      // Convert to chart format (scores are already 0-100, normalize to 0-10)
       const chartData = Object.entries(grouped).map(([name, scores]) => ({
         competency: name,
         score: (scores.reduce((a, b) => a + b, 0) / scores.length) / 10,
@@ -163,13 +161,13 @@ const Dashboard = () => {
       setCompetencyData(chartData);
     }
 
-    // Load SPIN evolution data
-    loadSpinEvolution();
+    // Load competency evolution data
+    loadCompetencyEvolution();
     // Load heatmap data
     loadHeatmapData();
   };
 
-  const loadSpinEvolution = async () => {
+  const loadCompetencyEvolution = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -178,23 +176,22 @@ const Dashboard = () => {
       .select(`
         session_id,
         score,
-        spin_category,
+        competency_name,
         roleplay_sessions!inner (
           completed_at,
           user_id
         )
       `)
       .eq('roleplay_sessions.user_id', user.id)
-      .not('spin_category', 'is', null)
       .order('roleplay_sessions.completed_at', { ascending: true });
 
     if (!data || data.length === 0) {
-      setSpinEvolution([]);
+      setCompetencyEvolution([]);
       return;
     }
 
-    // Agrupar por data e spin_category
-    const grouped: Record<string, any> = {};
+    // Group by date and competency_name
+    const grouped: Record<string, Record<string, number[]>> = {};
     
     data.forEach((item: any) => {
       const date = new Date(item.roleplay_sessions.completed_at).toLocaleDateString('pt-BR', {
@@ -203,38 +200,26 @@ const Dashboard = () => {
       });
       
       if (!grouped[date]) {
-        grouped[date] = { 
-          date,
-          situation: [],
-          problem: [],
-          implication: [],
-          need_payoff: []
-        };
+        grouped[date] = {};
       }
       
-      if (item.spin_category && grouped[date][item.spin_category]) {
-        grouped[date][item.spin_category].push(item.score);
+      const compName = item.competency_name;
+      if (!grouped[date][compName]) {
+        grouped[date][compName] = [];
       }
+      grouped[date][compName].push(item.score);
     });
 
-    // Calcular médias
-    const evolutionData = Object.values(grouped).map((day: any) => ({
-      date: day.date,
-      situation: day.situation.length > 0 
-        ? Math.round(day.situation.reduce((a: number, b: number) => a + b, 0) / day.situation.length) 
-        : 0,
-      problem: day.problem.length > 0 
-        ? Math.round(day.problem.reduce((a: number, b: number) => a + b, 0) / day.problem.length) 
-        : 0,
-      implication: day.implication.length > 0 
-        ? Math.round(day.implication.reduce((a: number, b: number) => a + b, 0) / day.implication.length) 
-        : 0,
-      need_payoff: day.need_payoff.length > 0 
-        ? Math.round(day.need_payoff.reduce((a: number, b: number) => a + b, 0) / day.need_payoff.length) 
-        : 0,
-    }));
+    // Calculate averages
+    const evolutionData = Object.entries(grouped).map(([date, competencies]) => {
+      const entry: any = { date };
+      Object.entries(competencies).forEach(([name, scores]) => {
+        entry[name] = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+      });
+      return entry;
+    });
 
-    setSpinEvolution(evolutionData);
+    setCompetencyEvolution(evolutionData);
   };
 
   const loadHeatmapData = async () => {
@@ -244,49 +229,41 @@ const Dashboard = () => {
     const { data } = await supabase
       .from('competency_scores')
       .select(`
-        spin_category,
+        competency_name,
         score,
         roleplay_sessions!inner (
           meeting_type,
           user_id
         )
       `)
-      .eq('roleplay_sessions.user_id', user.id)
-      .not('spin_category', 'is', null);
+      .eq('roleplay_sessions.user_id', user.id);
 
     if (!data || data.length === 0) {
       setHeatmapData([]);
       return;
     }
 
-    // Agrupar por meeting_type
-    const grouped: Record<string, any> = {};
+    // Group by meeting_type and competency_name
+    const grouped: Record<string, Record<string, number[]>> = {};
     
     data.forEach((item: any) => {
       const type = item.roleplay_sessions.meeting_type;
       if (!grouped[type]) {
-        grouped[type] = { 
-          meetingType: type,
-          situation: [],
-          problem: [],
-          implication: [],
-          need_payoff: []
-        };
+        grouped[type] = {};
       }
       
-      const category = item.spin_category;
-      if (grouped[type][category]) {
-        grouped[type][category].push(item.score);
+      const compName = item.competency_name;
+      if (!grouped[type][compName]) {
+        grouped[type][compName] = [];
       }
+      grouped[type][compName].push(item.score);
     });
 
-    // Calcular médias
-    const result = Object.values(grouped).map((item: any) => {
-      const output: any = { meetingType: item.meetingType };
-      ['situation', 'problem', 'implication', 'need_payoff'].forEach((key) => {
-        if (item[key].length > 0) {
-          output[key] = Math.round(item[key].reduce((a: number, b: number) => a + b, 0) / item[key].length);
-        }
+    // Calculate averages
+    const result = Object.entries(grouped).map(([meetingType, competencies]) => {
+      const output: any = { meetingType };
+      Object.entries(competencies).forEach(([name, scores]) => {
+        output[name] = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
       });
       return output;
     });
@@ -323,7 +300,6 @@ const Dashboard = () => {
         description: data.message || "Sessões órfãs finalizadas com sucesso.",
       });
 
-      // Reload dashboard data
       loadDashboardData();
     } catch (error) {
       console.error('Unexpected error:', error);
@@ -378,6 +354,15 @@ const Dashboard = () => {
     return (type: string) => labels[type] || type;
   }, []);
 
+  // Dynamic chart colors
+  const CHART_COLORS = [
+    '#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088fe',
+    '#00c49f', '#ffbb28', '#ff8042', '#a4de6c', '#d0ed57',
+  ];
+
+  // Get competency names from config
+  const competencyNames = companyConfig.competencies;
+
   return (
     <div className="min-h-screen bg-background">
       <Header userName={profile?.full_name} userAvatar={profile?.avatar_url} />
@@ -390,7 +375,8 @@ const Dashboard = () => {
               Olá, {profile?.full_name || 'Usuário'}! 👋
             </h1>
             <p className="text-muted-foreground">
-              Acompanhe seu progresso e desempenho
+              {organization?.name ? `${organization.name} • ` : ''}
+              Metodologia: {companyConfig.methodology} • Acompanhe seu progresso e desempenho
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
@@ -434,20 +420,30 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* SPIN Evolution Chart */}
-        <div className="mb-6 sm:mb-8">
-          <SPINEvolutionChart data={spinEvolution} />
-        </div>
+        {/* Competency Evolution Chart - dynamic */}
+        {competencyEvolution.length > 0 && (
+          <div className="mb-6 sm:mb-8">
+            <Card className="p-6">
+              <h2 className="text-2xl font-semibold mb-6">Evolução de Competências</h2>
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                {/* Evolution data available - competency names are dynamic */}
+                <p>Dados de evolução carregados para {competencyNames.length} competências</p>
+              </div>
+            </Card>
+          </div>
+        )}
 
-        {/* Competency Heatmap */}
-        <div className="mb-6 sm:mb-8">
-          <CompetencyHeatmap data={heatmapData} />
-        </div>
+        {/* Competency Heatmap - now dynamic */}
+        {heatmapData.length > 0 && (
+          <div className="mb-6 sm:mb-8">
+            <CompetencyHeatmap data={heatmapData} competencyNames={competencyNames} />
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">
           {/* Radar Chart */}
           <Card className="p-4 sm:p-6 bg-card border-border">
-            <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Competências SPIN</h3>
+            <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Competências — {companyConfig.methodology}</h3>
             <div className="h-[300px] sm:h-[400px]">
               {competencyData.length > 0 ? (
                 <Suspense fallback={
