@@ -8,6 +8,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { BrandingProvider } from "./contexts/BrandingContext";
+import { TenantProvider } from "./contexts/TenantContext";
 
 // Lazy load all pages for better initial bundle size
 const Index = lazy(() => import("./pages/Index"));
