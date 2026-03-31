@@ -15,6 +15,7 @@ import { generateTechnicalDocumentation } from '@/utils/technicalDocGenerator';
 import { FileText, Download } from 'lucide-react';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { useBranding } from '@/contexts/BrandingContext';
+import CompetencyHeatmap from '@/components/CompetencyHeatmap';
 
 // Lazy load chart component to reduce initial bundle
 const CompetencyChart = lazy(() => import('@/components/CompetencyChart'));
