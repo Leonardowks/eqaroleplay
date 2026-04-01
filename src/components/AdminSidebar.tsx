@@ -1,4 +1,4 @@
-import { Users, BarChart3, MessageSquare, Shield, Settings, Palette, UserCircle, Rocket, ListChecks } from 'lucide-react';
+import { Users, BarChart3, MessageSquare, Shield, Settings, Palette, UserCircle, Rocket, ListChecks, FlaskConical } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import {
   Sidebar,
@@ -20,6 +20,7 @@ const adminItems = [
   { title: 'Sessões', url: '/admin/sessions', icon: MessageSquare },
   { title: 'Configurações', url: '/admin/settings', icon: Settings },
   { title: 'Marca & Visual', url: '/admin/branding', icon: Palette },
+  { title: 'Preview IA', url: '/admin/prompt-preview', icon: FlaskConical },
   { title: 'Onboarding', url: '/admin/onboarding', icon: Rocket },
 ];
 
