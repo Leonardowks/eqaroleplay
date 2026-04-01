@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
       .from("invitations")
       .insert({
         organization_id,
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         role: inviteRole,
         personal_message: personal_message || null,
         invited_by: userId,
