@@ -16,9 +16,11 @@ import { FileText, Download } from 'lucide-react';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { useBranding } from '@/contexts/BrandingContext';
 import CompetencyHeatmap from '@/components/CompetencyHeatmap';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-// Lazy load chart component to reduce initial bundle
+// Lazy load chart components
 const CompetencyChart = lazy(() => import('@/components/CompetencyChart'));
+const CompetencyEvolution = lazy(() => import('@/components/CompetencyEvolution'));
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -421,93 +423,106 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* Competency Evolution Chart - dynamic */}
-        {competencyEvolution.length > 0 && (
-          <div className="mb-6 sm:mb-8">
-            <Card className="p-6">
-              <h2 className="text-2xl font-semibold mb-6">Evolução de Competências</h2>
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                {/* Evolution data available - competency names are dynamic */}
-                <p>Dados de evolução carregados para {competencyNames.length} competências</p>
-              </div>
-            </Card>
-          </div>
-        )}
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+            <TabsTrigger value="evolution">Minha Evolução</TabsTrigger>
+          </TabsList>
 
-        {/* Competency Heatmap - now dynamic */}
-        {heatmapData.length > 0 && (
-          <div className="mb-6 sm:mb-8">
-            <CompetencyHeatmap data={heatmapData} competencyNames={competencyNames} />
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">
-          {/* Radar Chart */}
-          <Card className="p-4 sm:p-6 bg-card border-border">
-            <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Competências — {companyConfig.methodology}</h3>
-            <div className="h-[300px] sm:h-[400px]">
-              {competencyData.length > 0 ? (
-                <Suspense fallback={
-                  <div className="flex items-center justify-center h-full">
-                    <Skeleton className="w-full h-full" />
-                  </div>
-                }>
-                  <CompetencyChart data={competencyData} />
-                </Suspense>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                  <Target className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground mb-4">
-                    Complete sua primeira sessão para visualizar suas competências
-                  </p>
-                  <Button onClick={() => navigate('/roleplay')}>
-                    <Play className="mr-2 h-4 w-4" />
-                    Iniciar Sessão
-                  </Button>
+          <TabsContent value="overview" className="space-y-6 sm:space-y-8">
+            {/* Competency Evolution Chart - dynamic */}
+            {competencyEvolution.length > 0 && (
+              <Card className="p-6">
+                <h2 className="text-2xl font-semibold mb-6">Evolução de Competências</h2>
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  <p>Dados de evolução carregados para {competencyNames.length} competências</p>
                 </div>
-              )}
-            </div>
-          </Card>
+              </Card>
+            )}
 
-          {/* Recent sessions */}
-          <Card className="p-4 sm:p-6 bg-card border-border">
-            <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Últimas Sessões</h3>
-            <div className="space-y-3 sm:space-y-4">
-              {recentSessions.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  Nenhuma sessão completada ainda. Comece a treinar!
-                </p>
-              ) : (
-                recentSessions.map((session) => (
-                  <div
-                    key={session.id}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition gap-2 sm:gap-0"
-                  >
-                    <div className="flex-1">
-                      <p className="font-medium mb-1 text-sm sm:text-base">
-                        {getMeetingTypeLabel(session.meeting_type)}
-                      </p>
-                      <p className="text-xs sm:text-sm text-muted-foreground">
-                        {format(new Date(session.completed_at), "dd 'de' MMM, HH:mm", { locale: ptBR })}
-                      </p>
-                    </div>
-                    <div className="text-left sm:text-right">
-                      <div className="text-lg sm:text-xl font-bold text-primary">
-                        {session.overall_score?.toFixed(1) || 'N/A'}
+            {/* Competency Heatmap */}
+            {heatmapData.length > 0 && (
+              <CompetencyHeatmap data={heatmapData} competencyNames={competencyNames} />
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+              {/* Radar Chart */}
+              <Card className="p-4 sm:p-6 bg-card border-border">
+                <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Competências — {companyConfig.methodology}</h3>
+                <div className="h-[300px] sm:h-[400px]">
+                  {competencyData.length > 0 ? (
+                    <Suspense fallback={
+                      <div className="flex items-center justify-center h-full">
+                        <Skeleton className="w-full h-full" />
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {session.method === 'text' ? 'Texto' : 'Voz'}
-                      </div>
+                    }>
+                      <CompetencyChart data={competencyData} />
+                    </Suspense>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-center px-4">
+                      <Target className="h-12 w-12 text-muted-foreground mb-4" />
+                      <p className="text-muted-foreground mb-4">
+                        Complete sua primeira sessão para visualizar suas competências
+                      </p>
+                      <Button onClick={() => navigate('/roleplay')}>
+                        <Play className="mr-2 h-4 w-4" />
+                        Iniciar Sessão
+                      </Button>
                     </div>
-                  </div>
-                ))
-              )}
+                  )}
+                </div>
+              </Card>
+
+              {/* Recent sessions */}
+              <Card className="p-4 sm:p-6 bg-card border-border">
+                <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Últimas Sessões</h3>
+                <div className="space-y-3 sm:space-y-4">
+                  {recentSessions.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">
+                      Nenhuma sessão completada ainda. Comece a treinar!
+                    </p>
+                  ) : (
+                    recentSessions.map((session) => (
+                      <div
+                        key={session.id}
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition gap-2 sm:gap-0"
+                      >
+                        <div className="flex-1">
+                          <p className="font-medium mb-1 text-sm sm:text-base">
+                            {getMeetingTypeLabel(session.meeting_type)}
+                          </p>
+                          <p className="text-xs sm:text-sm text-muted-foreground">
+                            {format(new Date(session.completed_at), "dd 'de' MMM, HH:mm", { locale: ptBR })}
+                          </p>
+                        </div>
+                        <div className="text-left sm:text-right">
+                          <div className="text-lg sm:text-xl font-bold text-primary">
+                            {session.overall_score?.toFixed(1) || 'N/A'}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {session.method === 'text' ? 'Texto' : 'Voz'}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
             </div>
-          </Card>
-        </div>
+          </TabsContent>
+
+          <TabsContent value="evolution">
+            <Suspense fallback={<Skeleton className="h-[500px] w-full" />}>
+              <CompetencyEvolution
+                data={competencyEvolution}
+                competencyNames={competencyNames}
+              />
+            </Suspense>
+          </TabsContent>
+        </Tabs>
 
         {/* CTA */}
-        <Card className="p-8 bg-gradient-primary text-white text-center">
+        <Card className="p-8 bg-gradient-primary text-white text-center mt-8">
           <h2 className="text-2xl font-bold mb-3">Pronto para treinar?</h2>
           <p className="mb-6 opacity-90">
             Escolha uma persona e comece um novo roleplay agora mesmo.
