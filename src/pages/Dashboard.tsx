@@ -16,9 +16,11 @@ import { FileText, Download } from 'lucide-react';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { useBranding } from '@/contexts/BrandingContext';
 import CompetencyHeatmap from '@/components/CompetencyHeatmap';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-// Lazy load chart component to reduce initial bundle
+// Lazy load chart components
 const CompetencyChart = lazy(() => import('@/components/CompetencyChart'));
+const CompetencyEvolution = lazy(() => import('@/components/CompetencyEvolution'));
 
 const Dashboard = () => {
   const navigate = useNavigate();
