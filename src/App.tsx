@@ -31,6 +31,7 @@ const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 const AdminBranding = lazy(() => import("./pages/admin/AdminBranding"));
 const AdminPersonas = lazy(() => import("./pages/admin/AdminPersonas"));
 const AdminOnboarding = lazy(() => import("./pages/admin/AdminOnboarding"));
+const AdminCompetencies = lazy(() => import("./pages/admin/AdminCompetencies"));
 
 // Optimize React Query configuration
 const queryClient = new QueryClient({
@@ -87,6 +88,7 @@ const App = () => (
                   <Route path="settings" element={<AdminSettings />} />
                   <Route path="branding" element={<AdminBranding />} />
                   <Route path="onboarding" element={<AdminOnboarding />} />
+                  <Route path="competencies" element={<AdminCompetencies />} />
                 </Route>
                 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
