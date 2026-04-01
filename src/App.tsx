@@ -34,6 +34,7 @@ const AdminPersonas = lazy(() => import("./pages/admin/AdminPersonas"));
 const AdminOnboarding = lazy(() => import("./pages/admin/AdminOnboarding"));
 const AdminCompetencies = lazy(() => import("./pages/admin/AdminCompetencies"));
 const AdminPromptPreview = lazy(() => import("./pages/admin/AdminPromptPreview"));
+const OrganizationsList = lazy(() => import("./pages/superadmin/OrganizationsList"));
 
 // Optimize React Query configuration
 const queryClient = new QueryClient({
