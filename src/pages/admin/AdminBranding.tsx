@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { untypedFrom } from '@/integrations/supabase/untypedClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,8 +65,7 @@ const AdminBranding = () => {
   const loadBranding = async () => {
     setLoading(true);
     try {
-      const { data, error } = await (supabase as any)
-        .from('branding')
+      const { data, error } = await untypedFrom('branding')
         .select('*')
         .limit(1)
         .single();
@@ -92,15 +91,13 @@ const AdminBranding = () => {
     setSaving(true);
     try {
       if (branding.id) {
-        const { error } = await (supabase as any)
-          .from('branding')
+        const { error } = await untypedFrom('branding')
           .update(branding)
           .eq('id', branding.id);
 
         if (error) throw error;
       } else {
-        const { error } = await (supabase as any)
-          .from('branding')
+        const { error } = await untypedFrom('branding')
           .insert(branding);
 
         if (error) throw error;

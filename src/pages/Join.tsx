@@ -36,7 +36,7 @@ const Join = () => {
 
   const loadInvitation = async () => {
     try {
-      const { data, error: fetchError } = await (supabase as any)
+      const { data, error: fetchError } = await supabase
         .from('invitations')
         .select('*')
         .eq('token', token)
@@ -63,7 +63,7 @@ const Join = () => {
       setInvitation(data);
 
       // Fetch org info
-      const { data: org } = await (supabase as any)
+      const { data: org } = await supabase
         .from('organizations')
         .select('name, slug')
         .eq('id', data.organization_id)

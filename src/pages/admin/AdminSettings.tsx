@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { untypedFrom } from '@/integrations/supabase/untypedClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,8 +44,7 @@ const AdminSettings = () => {
     setLoading(true);
     try {
       // Load API configurations
-      const { data: apiData, error: apiError } = await (supabase as any)
-        .from('api_configurations')
+      const { data: apiData, error: apiError } = await untypedFrom('api_configurations')
         .select('*')
         .order('display_name');
 
@@ -64,8 +63,7 @@ const AdminSettings = () => {
       setEditedKeys(initialKeys);
 
       // Load feature flags
-      const { data: flagsData, error: flagsError } = await (supabase as any)
-        .from('feature_flags')
+      const { data: flagsData, error: flagsError } = await untypedFrom('feature_flags')
         .select('*')
         .order('display_name');
 
@@ -93,8 +91,7 @@ const AdminSettings = () => {
     try {
       const newKey = editedKeys[provider];
 
-      const { error } = await (supabase as any)
-        .from('api_configurations')
+      const { error } = await untypedFrom('api_configurations')
         .update({
           api_key: newKey,
           is_active: newKey.length > 0,
@@ -124,8 +121,7 @@ const AdminSettings = () => {
 
   const toggleFeatureFlag = async (flagId: string, currentValue: boolean) => {
     try {
-      const { error } = await (supabase as any)
-        .from('feature_flags')
+      const { error } = await untypedFrom('feature_flags')
         .update({ is_enabled: !currentValue })
         .eq('id', flagId);
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { untypedFrom } from '@/integrations/supabase/untypedClient';
 import { useToast } from '@/hooks/use-toast';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -418,7 +419,7 @@ const AdminOnboarding = () => {
       // Create org if doesn't exist
       if (!orgId) {
         const slug = data.company_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-        const { data: newOrg, error: orgError } = await (supabase as any)
+        const { data: newOrg, error: orgError } = await supabase
           .from('organizations')
           .insert({ name: data.company_name, slug, company_config: companyConfig })
           .select()
@@ -428,12 +429,12 @@ const AdminOnboarding = () => {
         orgId = newOrg.id;
 
         // Add user as owner
-        await (supabase as any)
+        await supabase
           .from('organization_members')
           .insert({ organization_id: orgId, user_id: user.id, role: 'owner' });
       } else {
         // Update existing org
-        await (supabase as any)
+        await supabase
           .from('organizations')
           .update({ company_config: companyConfig })
           .eq('id', orgId);
@@ -464,8 +465,7 @@ const AdminOnboarding = () => {
 
       // Save branding
       if (data.app_name || data.logo_url || data.tagline) {
-        await (supabase as any)
-          .from('branding')
+        await untypedFrom('branding')
           .insert({
             company_name: data.company_name,
             app_name: data.app_name || data.company_name,

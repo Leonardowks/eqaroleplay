@@ -64,14 +64,14 @@ export function useTenant() {
         try {
           const impersonateInfo = JSON.parse(impersonateRaw);
           if (impersonateInfo?.id) {
-            const { data, error: fetchError } = await (supabase as any)
+            const { data, error: fetchError } = await supabase
               .from('organizations')
               .select('*')
               .eq('id', impersonateInfo.id)
               .single();
 
             if (data && !fetchError) {
-              applyOrg(data as Organization);
+              applyOrg(data as unknown as Organization);
               setIsImpersonating(true);
               console.log(`[Tenant] Impersonating organization: ${data.name}`);
               setIsLoading(false);
@@ -88,7 +88,7 @@ export function useTenant() {
 
       if (!slug) {
         if (hostname !== 'localhost' && !/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
-          const { data, error: fetchError } = await (supabase as any)
+          const { data, error: fetchError } = await supabase
             .from('organizations')
             .select('*')
             .eq('custom_domain', hostname)
@@ -96,7 +96,7 @@ export function useTenant() {
             .single();
 
           if (data && !fetchError) {
-            applyOrg(data as Organization);
+            applyOrg(data as unknown as Organization);
             setIsLoading(false);
             return;
           }
@@ -107,7 +107,7 @@ export function useTenant() {
         return;
       }
 
-      const { data, error: fetchError } = await (supabase as any)
+      const { data, error: fetchError } = await supabase
         .from('organizations')
         .select('*')
         .eq('slug', slug)
@@ -126,7 +126,7 @@ export function useTenant() {
       }
 
       if (data) {
-        applyOrg(data as Organization);
+        applyOrg(data as unknown as Organization);
         console.log(`[Tenant] Loaded organization: ${data.name} (${data.slug})`);
       }
     } catch (err: any) {

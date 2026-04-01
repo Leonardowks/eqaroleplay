@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { untypedFrom } from '@/integrations/supabase/untypedClient';
 
 interface FeatureFlag {
   id: string;
@@ -26,8 +26,7 @@ export function useSettings() {
   const loadSettings = async () => {
     try {
       // Load feature flags
-      const { data: flagsData, error: flagsError } = await (supabase as any)
-        .from('feature_flags')
+      const { data: flagsData, error: flagsError } = await untypedFrom('feature_flags')
         .select('feature_key, is_enabled');
 
       if (flagsError) {
@@ -42,8 +41,7 @@ export function useSettings() {
       setFeatureFlags(flags);
 
       // Load API configurations
-      const { data: apiData, error: apiError } = await (supabase as any)
-        .from('api_configurations')
+      const { data: apiData, error: apiError } = await untypedFrom('api_configurations')
         .select('provider, is_active');
 
       if (apiError) {
@@ -93,8 +91,7 @@ export function useFeatureFlag(featureKey: string): boolean {
   useEffect(() => {
     const loadFlag = async () => {
       try {
-        const { data, error } = await (supabase as any)
-          .from('feature_flags')
+        const { data, error } = await untypedFrom('feature_flags')
           .select('is_enabled')
           .eq('feature_key', featureKey)
           .single();
@@ -102,7 +99,7 @@ export function useFeatureFlag(featureKey: string): boolean {
         if (error) {
           console.error(`Feature flag ${featureKey} not found:`, error);
         }
-        setIsEnabled((data as any)?.is_enabled ?? false);
+        setIsEnabled(data?.is_enabled ?? false);
       } catch (error) {
         console.error(`Error loading feature flag ${featureKey}:`, error);
         setIsEnabled(false);
