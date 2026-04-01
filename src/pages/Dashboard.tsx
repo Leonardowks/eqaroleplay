@@ -347,23 +347,6 @@ const Dashboard = () => {
     }
   };
 
-  // Memoize meeting type labels for better performance
-  const getMeetingTypeLabel = useMemo(() => {
-    const labels: Record<string, string> = {
-      prospection: 'Prospecção',
-      discovery: 'Descoberta',
-      presentation: 'Apresentação',
-      negotiation: 'Negociação',
-    };
-    return (type: string) => labels[type] || type;
-  }, []);
-
-  // Dynamic chart colors
-  const CHART_COLORS = [
-    '#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088fe',
-    '#00c49f', '#ffbb28', '#ff8042', '#a4de6c', '#d0ed57',
-  ];
-
   // Get competency names from config
   const competencyNames = companyConfig.competencies;
 
