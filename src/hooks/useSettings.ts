@@ -41,8 +41,7 @@ export function useSettings() {
       setFeatureFlags(flags);
 
       // Load API configurations
-      const { data: apiData, error: apiError } = await (supabase as any)
-        .from('api_configurations')
+      const { data: apiData, error: apiError } = await untypedFrom('api_configurations')
         .select('provider, is_active');
 
       if (apiError) {
