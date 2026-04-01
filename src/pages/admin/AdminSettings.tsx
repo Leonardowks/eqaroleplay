@@ -63,8 +63,7 @@ const AdminSettings = () => {
       setEditedKeys(initialKeys);
 
       // Load feature flags
-      const { data: flagsData, error: flagsError } = await (supabase as any)
-        .from('feature_flags')
+      const { data: flagsData, error: flagsError } = await untypedFrom('feature_flags')
         .select('*')
         .order('display_name');
 
