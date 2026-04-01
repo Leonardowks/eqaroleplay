@@ -13,12 +13,12 @@ export interface Competency {
   score: number;
   feedback: string | null;
   spin_category?: string | null;
-  // JSONB fields from Supabase — typed loosely to accept Json type
-  sub_scores?: Record<string, number> | null;
-  sub_scores_feedback?: Record<string, string> | null;
-  criterion_approvals?: Record<string, string | boolean> | null;
-  ai_suggestions?: Array<string | Record<string, unknown>> | null;
-  [key: string]: unknown; // allow extra DB fields
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sub_scores?: any;
+  sub_scores_feedback?: any;
+  criterion_approvals?: any;
+  ai_suggestions?: any;
+  [key: string]: unknown;
 }
 
 export interface SessionData {
