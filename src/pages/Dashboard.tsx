@@ -1,9 +1,10 @@
-import { useEffect, useState, useMemo, lazy, Suspense } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
 import { Card } from '@/components/ui/card';
-import { Trophy, Clock, Target, TrendingUp, Play, Trash2 } from 'lucide-react';
+import { Target, Play } from 'lucide-react';
+import { getMeetingTypeLabel } from '@/constants';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -345,23 +346,6 @@ const Dashboard = () => {
       setGeneratingReport(false);
     }
   };
-
-  // Memoize meeting type labels for better performance
-  const getMeetingTypeLabel = useMemo(() => {
-    const labels: Record<string, string> = {
-      prospection: 'Prospecção',
-      discovery: 'Descoberta',
-      presentation: 'Apresentação',
-      negotiation: 'Negociação',
-    };
-    return (type: string) => labels[type] || type;
-  }, []);
-
-  // Dynamic chart colors
-  const CHART_COLORS = [
-    '#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088fe',
-    '#00c49f', '#ffbb28', '#ff8042', '#a4de6c', '#d0ed57',
-  ];
 
   // Get competency names from config
   const competencyNames = companyConfig.competencies;

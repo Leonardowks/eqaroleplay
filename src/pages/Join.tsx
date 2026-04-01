@@ -8,16 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Building2, CheckCircle2, XCircle } from 'lucide-react';
 
-interface Invitation {
-  id: string;
-  email: string;
-  role: string;
-  token: string;
-  personal_message: string | null;
-  expires_at: string;
-  accepted_at: string | null;
-  organization_id: string;
-}
+import type { Invitation } from '@/types';
 
 interface OrgInfo {
   name: string;

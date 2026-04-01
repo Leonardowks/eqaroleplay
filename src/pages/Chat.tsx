@@ -24,12 +24,7 @@ import { Send, Loader2, X, ArrowLeft, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-interface Message {
-  id: string;
-  role: 'user' | 'persona';
-  content: string;
-  created_at: string;
-}
+import type { Message } from '@/types';
 
 const Chat = () => {
   const navigate = useNavigate();

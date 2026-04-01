@@ -14,25 +14,7 @@ import { ptBR } from 'date-fns/locale';
 import DetailedFeedback from '@/components/DetailedFeedback';
 import ActionPlanSection from '@/components/ActionPlanSection';
 import { useTenantContext } from '@/contexts/TenantContext';
-
-interface Message {
-  id: string;
-  role: string;
-  content: string;
-  created_at: string;
-}
-
-interface Competency {
-  id: string;
-  competency_name: string;
-  score: number;
-  feedback: string | null;
-  spin_category?: string | null;
-  sub_scores?: any;
-  sub_scores_feedback?: any;
-  criterion_approvals?: any;
-  ai_suggestions?: any;
-}
+import type { Message, Competency } from '@/types';
 
 const SessionDetail = () => {
   const { sessionId } = useParams();
