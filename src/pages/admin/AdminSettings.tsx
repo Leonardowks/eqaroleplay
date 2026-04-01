@@ -121,8 +121,7 @@ const AdminSettings = () => {
 
   const toggleFeatureFlag = async (flagId: string, currentValue: boolean) => {
     try {
-      const { error } = await (supabase as any)
-        .from('feature_flags')
+      const { error } = await untypedFrom('feature_flags')
         .update({ is_enabled: !currentValue })
         .eq('id', flagId);
 

@@ -97,8 +97,7 @@ const AdminBranding = () => {
 
         if (error) throw error;
       } else {
-        const { error } = await (supabase as any)
-          .from('branding')
+        const { error } = await untypedFrom('branding')
           .insert(branding);
 
         if (error) throw error;

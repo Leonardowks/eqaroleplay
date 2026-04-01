@@ -91,8 +91,7 @@ export function useFeatureFlag(featureKey: string): boolean {
   useEffect(() => {
     const loadFlag = async () => {
       try {
-        const { data, error } = await (supabase as any)
-          .from('feature_flags')
+        const { data, error } = await untypedFrom('feature_flags')
           .select('is_enabled')
           .eq('feature_key', featureKey)
           .single();
