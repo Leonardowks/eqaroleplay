@@ -91,8 +91,7 @@ const AdminBranding = () => {
     setSaving(true);
     try {
       if (branding.id) {
-        const { error } = await (supabase as any)
-          .from('branding')
+        const { error } = await untypedFrom('branding')
           .update(branding)
           .eq('id', branding.id);
 
