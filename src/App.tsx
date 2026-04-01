@@ -23,6 +23,7 @@ const Ranking = lazy(() => import("./pages/Ranking"));
 const SessionDetail = lazy(() => import("./pages/SessionDetail"));
 const Compare = lazy(() => import("./pages/Compare"));
 const ActiveSessions = lazy(() => import("./pages/ActiveSessions"));
+const Join = lazy(() => import("./pages/Join"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));

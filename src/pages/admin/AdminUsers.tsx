@@ -441,6 +441,84 @@ const AdminUsers = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={inviteOpen} onOpenChange={(open) => { if (!open) resetInviteDialog(); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Convidar Vendedor</DialogTitle>
+            <DialogDescription>
+              Envie um link de convite para um novo membro da equipe.
+            </DialogDescription>
+          </DialogHeader>
+
+          {inviteLink ? (
+            <div className="space-y-4">
+              <div className="bg-muted rounded-lg p-4 space-y-2">
+                <Label className="text-xs text-muted-foreground">Link de convite</Label>
+                <div className="flex gap-2">
+                  <Input value={inviteLink} readOnly className="text-xs" />
+                  <Button variant="outline" size="sm" onClick={copyLink} className="shrink-0">
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Envie este link para <strong>{inviteEmail}</strong>. O convite expira em 7 dias.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={resetInviteDialog}>Fechar</Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="invite-email">E-mail</Label>
+                <Input
+                  id="invite-email"
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="vendedor@empresa.com"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Função</Label>
+                <Select value={inviteRole} onValueChange={setInviteRole}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">Membro</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="invite-message">Mensagem pessoal (opcional)</Label>
+                <Textarea
+                  id="invite-message"
+                  value={inviteMessage}
+                  onChange={(e) => setInviteMessage(e.target.value)}
+                  placeholder="Bem-vindo(a) à equipe!"
+                  rows={2}
+                  maxLength={500}
+                />
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={resetInviteDialog}>Cancelar</Button>
+                <Button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()} className="gap-2">
+                  {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                  Criar Convite
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
