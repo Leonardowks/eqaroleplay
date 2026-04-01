@@ -418,7 +418,7 @@ const AdminOnboarding = () => {
       // Create org if doesn't exist
       if (!orgId) {
         const slug = data.company_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-        const { data: newOrg, error: orgError } = await (supabase as any)
+        const { data: newOrg, error: orgError } = await supabase
           .from('organizations')
           .insert({ name: data.company_name, slug, company_config: companyConfig })
           .select()
