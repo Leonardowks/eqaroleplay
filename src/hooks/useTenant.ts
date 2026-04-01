@@ -126,7 +126,7 @@ export function useTenant() {
       }
 
       if (data) {
-        applyOrg(data as Organization);
+        applyOrg(data as unknown as Organization);
         console.log(`[Tenant] Loaded organization: ${data.name} (${data.slug})`);
       }
     } catch (err: any) {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { untypedFrom } from '@/integrations/supabase/untypedClient';
 import { useToast } from '@/hooks/use-toast';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
