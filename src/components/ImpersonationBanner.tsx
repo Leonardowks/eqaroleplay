@@ -1,4 +1,3 @@
-import { useTenantContext } from '@/contexts/TenantContext';
 import { Button } from '@/components/ui/button';
 import { X, Eye } from 'lucide-react';
 
