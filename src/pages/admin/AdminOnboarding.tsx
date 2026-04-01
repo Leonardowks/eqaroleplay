@@ -428,7 +428,7 @@ const AdminOnboarding = () => {
         orgId = newOrg.id;
 
         // Add user as owner
-        await (supabase as any)
+        await supabase
           .from('organization_members')
           .insert({ organization_id: orgId, user_id: user.id, role: 'owner' });
       } else {
