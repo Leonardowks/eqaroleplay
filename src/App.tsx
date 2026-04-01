@@ -88,6 +88,7 @@ const App = () => (
                   <Route path="settings" element={<AdminSettings />} />
                   <Route path="branding" element={<AdminBranding />} />
                   <Route path="onboarding" element={<AdminOnboarding />} />
+                  <Route path="competencies" element={<AdminCompetencies />} />
                 </Route>
                 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
