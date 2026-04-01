@@ -299,11 +299,17 @@ const AdminUsers = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Gerenciar Usuários</h1>
-        <p className="text-muted-foreground">
-          Total de {users.length} usuário(s) cadastrado(s)
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Gerenciar Usuários</h1>
+          <p className="text-muted-foreground">
+            Total de {users.length} usuário(s) cadastrado(s)
+          </p>
+        </div>
+        <Button onClick={() => setInviteOpen(true)} className="gap-2">
+          <UserPlus className="h-4 w-4" />
+          Convidar Vendedor
+        </Button>
       </div>
 
       <Card>
