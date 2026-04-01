@@ -65,8 +65,7 @@ const AdminBranding = () => {
   const loadBranding = async () => {
     setLoading(true);
     try {
-      const { data, error } = await (supabase as any)
-        .from('branding')
+      const { data, error } = await untypedFrom('branding')
         .select('*')
         .limit(1)
         .single();
