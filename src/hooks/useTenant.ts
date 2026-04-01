@@ -71,7 +71,7 @@ export function useTenant() {
               .single();
 
             if (data && !fetchError) {
-              applyOrg(data as Organization);
+              applyOrg(data as unknown as Organization);
               setIsImpersonating(true);
               console.log(`[Tenant] Impersonating organization: ${data.name}`);
               setIsLoading(false);
