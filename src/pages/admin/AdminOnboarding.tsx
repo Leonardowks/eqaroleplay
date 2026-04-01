@@ -433,7 +433,7 @@ const AdminOnboarding = () => {
           .insert({ organization_id: orgId, user_id: user.id, role: 'owner' });
       } else {
         // Update existing org
-        await (supabase as any)
+        await supabase
           .from('organizations')
           .update({ company_config: companyConfig })
           .eq('id', orgId);
