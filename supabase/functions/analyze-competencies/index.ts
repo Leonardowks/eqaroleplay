@@ -212,7 +212,7 @@ Responda APENAS em JSON válido no formato:
     );
 
   } catch (error) {
-    console.error('Error in analyze-spin function:', error);
+    console.error('Error in analyze-competencies function:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ error: errorMessage }),
