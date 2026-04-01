@@ -23,6 +23,7 @@ const Ranking = lazy(() => import("./pages/Ranking"));
 const SessionDetail = lazy(() => import("./pages/SessionDetail"));
 const Compare = lazy(() => import("./pages/Compare"));
 const ActiveSessions = lazy(() => import("./pages/ActiveSessions"));
+const Join = lazy(() => import("./pages/Join"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -72,6 +73,7 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<Navigate to="/auth" replace />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/join/:token" element={<Join />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/roleplay" element={<ProtectedRoute><Roleplay /></ProtectedRoute>} />
                 <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />

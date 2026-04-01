@@ -4,8 +4,27 @@ import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, UserCog, User, Loader2, Trash2 } from 'lucide-react';
+import { useTenantContext } from '@/contexts/TenantContext';
+import { Shield, UserCog, User, Loader2, Trash2, UserPlus, Copy, Check } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -46,6 +65,16 @@ const AdminUsers = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<{ id: string; name: string } | null>(null);
   const { toast } = useToast();
+  const { organization } = useTenantContext();
+
+  // Invite dialog state
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('member');
+  const [inviteMessage, setInviteMessage] = useState('');
+  const [inviting, setInviting] = useState(false);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     loadUsers();
@@ -141,6 +170,55 @@ const AdminUsers = () => {
     }
   };
 
+  const handleInvite = async () => {
+    if (!inviteEmail.trim() || !organization?.id) {
+      toast({ title: 'E-mail e organização são obrigatórios', variant: 'destructive' });
+      return;
+    }
+    setInviting(true);
+    setInviteLink(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('invite-user', {
+        body: {
+          email: inviteEmail.trim(),
+          role: inviteRole,
+          organization_id: organization.id,
+          personal_message: inviteMessage.trim() || null,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast({ title: data.error, variant: 'destructive' });
+        setInviting(false);
+        return;
+      }
+      setInviteLink(data.invite_link);
+      toast({ title: 'Convite criado com sucesso!' });
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: 'Erro ao enviar convite', description: err.message, variant: 'destructive' });
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const copyLink = () => {
+    if (inviteLink) {
+      navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const resetInviteDialog = () => {
+    setInviteEmail('');
+    setInviteRole('member');
+    setInviteMessage('');
+    setInviteLink(null);
+    setCopied(false);
+    setInviteOpen(false);
+  };
+
   const handleDeleteHistoryClick = (userId: string, userName: string) => {
     setUserToDelete({ id: userId, name: userName });
     setDeleteDialogOpen(true);
@@ -221,11 +299,17 @@ const AdminUsers = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Gerenciar Usuários</h1>
-        <p className="text-muted-foreground">
-          Total de {users.length} usuário(s) cadastrado(s)
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Gerenciar Usuários</h1>
+          <p className="text-muted-foreground">
+            Total de {users.length} usuário(s) cadastrado(s)
+          </p>
+        </div>
+        <Button onClick={() => setInviteOpen(true)} className="gap-2">
+          <UserPlus className="h-4 w-4" />
+          Convidar Vendedor
+        </Button>
       </div>
 
       <Card>
@@ -357,6 +441,84 @@ const AdminUsers = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={inviteOpen} onOpenChange={(open) => { if (!open) resetInviteDialog(); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Convidar Vendedor</DialogTitle>
+            <DialogDescription>
+              Envie um link de convite para um novo membro da equipe.
+            </DialogDescription>
+          </DialogHeader>
+
+          {inviteLink ? (
+            <div className="space-y-4">
+              <div className="bg-muted rounded-lg p-4 space-y-2">
+                <Label className="text-xs text-muted-foreground">Link de convite</Label>
+                <div className="flex gap-2">
+                  <Input value={inviteLink} readOnly className="text-xs" />
+                  <Button variant="outline" size="sm" onClick={copyLink} className="shrink-0">
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Envie este link para <strong>{inviteEmail}</strong>. O convite expira em 7 dias.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={resetInviteDialog}>Fechar</Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="invite-email">E-mail</Label>
+                <Input
+                  id="invite-email"
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="vendedor@empresa.com"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Função</Label>
+                <Select value={inviteRole} onValueChange={setInviteRole}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">Membro</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="invite-message">Mensagem pessoal (opcional)</Label>
+                <Textarea
+                  id="invite-message"
+                  value={inviteMessage}
+                  onChange={(e) => setInviteMessage(e.target.value)}
+                  placeholder="Bem-vindo(a) à equipe!"
+                  rows={2}
+                  maxLength={500}
+                />
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={resetInviteDialog}>Cancelar</Button>
+                <Button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()} className="gap-2">
+                  {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                  Criar Convite
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
