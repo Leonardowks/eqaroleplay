@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
 import { Card } from '@/components/ui/card';
 import { Trophy, Clock, Target, TrendingUp, Play, Trash2 } from 'lucide-react';
+import { getMeetingTypeLabel, CHART_COLORS } from '@/constants';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
