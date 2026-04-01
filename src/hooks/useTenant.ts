@@ -64,7 +64,7 @@ export function useTenant() {
         try {
           const impersonateInfo = JSON.parse(impersonateRaw);
           if (impersonateInfo?.id) {
-            const { data, error: fetchError } = await (supabase as any)
+            const { data, error: fetchError } = await supabase
               .from('organizations')
               .select('*')
               .eq('id', impersonateInfo.id)
