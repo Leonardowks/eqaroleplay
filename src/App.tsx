@@ -95,6 +95,9 @@ const App = () => (
                   <Route path="prompt-preview" element={<AdminPromptPreview />} />
                 </Route>
                 
+                {/* Super Admin Routes */}
+                <Route path="/superadmin/organizations" element={<SuperAdminRoute><OrganizationsList /></SuperAdminRoute>} />
+                
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
