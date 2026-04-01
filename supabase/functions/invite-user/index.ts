@@ -60,10 +60,11 @@ Deno.serve(async (req) => {
     const inviteRole = validRoles.includes(role) ? role : "member";
 
     // Check if invitation already exists and is pending
+    const normalizedEmail = email.trim().toLowerCase();
     const { data: existing } = await supabaseAdmin
       .from("invitations")
       .select("id, accepted_at, expires_at")
-      .eq("email", email)
+      .eq("email", normalizedEmail)
       .eq("organization_id", organization_id)
       .is("accepted_at", null)
       .gt("expires_at", new Date().toISOString())
@@ -86,7 +87,7 @@ Deno.serve(async (req) => {
       .from("invitations")
       .insert({
         organization_id,
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         role: inviteRole,
         personal_message: personal_message || null,
         invited_by: userId,

@@ -90,7 +90,7 @@ const Join = () => {
   const handleAccept = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!invitation) return;
+    if (!invitation || !token) return;
 
     if (password.length < 6) {
       toast({ title: 'Senha deve ter pelo menos 6 caracteres', variant: 'destructive' });
@@ -109,71 +109,32 @@ const Join = () => {
 
     setSubmitting(true);
     try {
-      // 1. Create auth user
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: invitation.email,
-        password,
-        options: {
-          data: { full_name: fullName.trim() },
+      // Call edge function that handles everything server-side with service role
+      const { data, error: fnError } = await supabase.functions.invoke('accept-invitation', {
+        body: {
+          token,
+          full_name: fullName.trim(),
+          password,
         },
       });
 
-      if (signUpError) {
-        if (signUpError.message.includes('already registered')) {
-          toast({
-            title: 'E-mail já cadastrado',
-            description: 'Faça login com sua conta existente.',
-            variant: 'destructive',
-          });
-        } else {
-          toast({ title: 'Erro ao criar conta', description: signUpError.message, variant: 'destructive' });
-        }
+      if (fnError) {
+        toast({ title: 'Erro ao aceitar convite', description: fnError.message, variant: 'destructive' });
         setSubmitting(false);
         return;
       }
 
-      const user = authData.user;
-      if (!user) {
-        toast({ title: 'Erro inesperado ao criar conta', variant: 'destructive' });
+      if (data?.error) {
+        toast({ title: data.error, variant: 'destructive' });
         setSubmitting(false);
         return;
       }
-
-      // 2. Create profile
-      await supabase.from('profiles').upsert({
-        id: user.id,
-        full_name: fullName.trim(),
-        organization_id: invitation.organization_id,
-      });
-
-      // 3. Create organization member
-      await (supabase as any).from('organization_members').insert({
-        organization_id: invitation.organization_id,
-        user_id: user.id,
-        role: invitation.role,
-      });
-
-      // 4. If role is admin, add user_role
-      if (invitation.role === 'admin') {
-        await supabase.from('user_roles').insert({
-          user_id: user.id,
-          role: 'admin',
-          organization_id: invitation.organization_id,
-        });
-      }
-
-      // 5. Mark invitation as accepted
-      await (supabase as any)
-        .from('invitations')
-        .update({ accepted_at: new Date().toISOString() })
-        .eq('id', invitation.id);
 
       toast({
         title: 'Conta criada com sucesso!',
-        description: 'Verifique seu e-mail para confirmar a conta antes de fazer login.',
+        description: 'Você já pode fazer login com seu e-mail e senha.',
       });
 
-      // Redirect to auth page
       setTimeout(() => navigate('/auth'), 2000);
     } catch (err: any) {
       console.error(err);
