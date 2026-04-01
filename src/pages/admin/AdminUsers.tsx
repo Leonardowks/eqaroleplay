@@ -170,6 +170,55 @@ const AdminUsers = () => {
     }
   };
 
+  const handleInvite = async () => {
+    if (!inviteEmail.trim() || !organization?.id) {
+      toast({ title: 'E-mail e organização são obrigatórios', variant: 'destructive' });
+      return;
+    }
+    setInviting(true);
+    setInviteLink(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('invite-user', {
+        body: {
+          email: inviteEmail.trim(),
+          role: inviteRole,
+          organization_id: organization.id,
+          personal_message: inviteMessage.trim() || null,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast({ title: data.error, variant: 'destructive' });
+        setInviting(false);
+        return;
+      }
+      setInviteLink(data.invite_link);
+      toast({ title: 'Convite criado com sucesso!' });
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: 'Erro ao enviar convite', description: err.message, variant: 'destructive' });
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const copyLink = () => {
+    if (inviteLink) {
+      navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const resetInviteDialog = () => {
+    setInviteEmail('');
+    setInviteRole('member');
+    setInviteMessage('');
+    setInviteLink(null);
+    setCopied(false);
+    setInviteOpen(false);
+  };
+
   const handleDeleteHistoryClick = (userId: string, userName: string) => {
     setUserToDelete({ id: userId, name: userName });
     setDeleteDialogOpen(true);
