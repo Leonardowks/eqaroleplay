@@ -5,30 +5,6 @@ import type { Organization, CompanyConfig } from '@/types';
 export type { Organization, CompanyConfig };
 export type { ICPConfig } from '@/types';
 
-export interface CompanyConfig {
-  company_name: string;
-  segment: string;
-  product_description: string;
-  ticket_range: string;
-  sales_cycle: string;
-  icp: ICPConfig;
-  methodology: 'SPIN' | 'BANT' | 'Challenger Sale' | 'Sandler' | 'Consultiva' | 'Nenhuma';
-  sales_stages: string[];
-  competencies: string[];
-  tone: string;
-}
-
-export interface Organization {
-  id: string;
-  slug: string;
-  name: string;
-  custom_domain: string | null;
-  company_config: CompanyConfig | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
 const DEFAULT_COMPANY_CONFIG: CompanyConfig = {
   company_name: 'Roleplay',
   segment: 'SaaS / Tecnologia',
