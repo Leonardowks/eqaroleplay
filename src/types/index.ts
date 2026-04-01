@@ -13,10 +13,10 @@ export interface Competency {
   score: number;
   feedback: string | null;
   spin_category?: string | null;
-  sub_scores?: Record<string, number> | null;
-  sub_scores_feedback?: Record<string, string> | null;
-  criterion_approvals?: Record<string, boolean> | null;
-  ai_suggestions?: string[] | null;
+  sub_scores?: Record<string, number> | unknown | null;
+  sub_scores_feedback?: Record<string, string> | unknown | null;
+  criterion_approvals?: Record<string, unknown> | unknown | null;
+  ai_suggestions?: unknown[] | unknown | null;
 }
 
 export interface SessionData {
