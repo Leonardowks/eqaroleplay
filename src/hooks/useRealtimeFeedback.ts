@@ -60,8 +60,8 @@ export const useRealtimeFeedback = (
         return;
       }
 
-      console.log('[Feedback] Calling analyze-spin function...');
-      const response = await supabase.functions.invoke('analyze-spin', {
+      console.log('[Feedback] Calling analyze-competencies function...');
+      const response = await supabase.functions.invoke('analyze-competencies', {
         body: {
           messages: messagesRef.current,
           sessionId,
