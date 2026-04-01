@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
+import SuperAdminRoute from "./components/SuperAdminRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { BrandingProvider } from "./contexts/BrandingContext";
 import { TenantProvider } from "./contexts/TenantContext";
@@ -33,6 +34,7 @@ const AdminPersonas = lazy(() => import("./pages/admin/AdminPersonas"));
 const AdminOnboarding = lazy(() => import("./pages/admin/AdminOnboarding"));
 const AdminCompetencies = lazy(() => import("./pages/admin/AdminCompetencies"));
 const AdminPromptPreview = lazy(() => import("./pages/admin/AdminPromptPreview"));
+const OrganizationsList = lazy(() => import("./pages/superadmin/OrganizationsList"));
 
 // Optimize React Query configuration
 const queryClient = new QueryClient({
@@ -92,6 +94,9 @@ const App = () => (
                   <Route path="competencies" element={<AdminCompetencies />} />
                   <Route path="prompt-preview" element={<AdminPromptPreview />} />
                 </Route>
+                
+                {/* Super Admin Routes */}
+                <Route path="/superadmin/organizations" element={<SuperAdminRoute><OrganizationsList /></SuperAdminRoute>} />
                 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />

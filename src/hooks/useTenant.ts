@@ -33,7 +33,7 @@ export interface Organization {
 }
 
 const DEFAULT_COMPANY_CONFIG: CompanyConfig = {
-  company_name: 'EQA Roleplay',
+  company_name: 'Roleplay',
   segment: 'SaaS / Tecnologia',
   product_description: 'Plataforma de treinamento de vendas com IA',
   ticket_range: 'R$ 5.000 - R$ 50.000',
@@ -51,20 +51,13 @@ const DEFAULT_COMPANY_CONFIG: CompanyConfig = {
 };
 
 function extractSlug(hostname: string): string | null {
-  // localhost or IP = dev mode
   if (hostname === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
     return null;
   }
 
-  // Custom domains (no subdomain extraction)
   const parts = hostname.split('.');
-  
-  // e.g. acme.myapp.com -> subdomain = acme
-  // myapp.com -> no subdomain
-  // acme.lovable.app -> subdomain = acme
   if (parts.length >= 3) {
     const subdomain = parts[0];
-    // Skip common non-tenant subdomains
     if (['www', 'app', 'api', 'admin'].includes(subdomain)) return null;
     return subdomain;
   }
@@ -77,19 +70,50 @@ export function useTenant() {
   const [companyConfig, setCompanyConfig] = useState<CompanyConfig>(DEFAULT_COMPANY_CONFIG);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isImpersonating, setIsImpersonating] = useState(false);
 
   useEffect(() => {
     detectTenant();
   }, []);
 
+  const applyOrg = (org: Organization) => {
+    setOrganization(org);
+    if (org.company_config) {
+      setCompanyConfig({ ...DEFAULT_COMPANY_CONFIG, ...(org.company_config as any) });
+    }
+  };
+
   const detectTenant = async () => {
     try {
+      // Check for superadmin impersonation first
+      const impersonateRaw = localStorage.getItem('superadmin_viewing_org');
+      if (impersonateRaw) {
+        try {
+          const impersonateInfo = JSON.parse(impersonateRaw);
+          if (impersonateInfo?.id) {
+            const { data, error: fetchError } = await (supabase as any)
+              .from('organizations')
+              .select('*')
+              .eq('id', impersonateInfo.id)
+              .single();
+
+            if (data && !fetchError) {
+              applyOrg(data as Organization);
+              setIsImpersonating(true);
+              console.log(`[Tenant] Impersonating organization: ${data.name}`);
+              setIsLoading(false);
+              return;
+            }
+          }
+        } catch {
+          localStorage.removeItem('superadmin_viewing_org');
+        }
+      }
+
       const hostname = window.location.hostname;
       const slug = extractSlug(hostname);
 
-      // Dev mode: no tenant detection
       if (!slug) {
-        // Try custom_domain match
         if (hostname !== 'localhost' && !/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
           const { data, error: fetchError } = await (supabase as any)
             .from('organizations')
@@ -99,23 +123,17 @@ export function useTenant() {
             .single();
 
           if (data && !fetchError) {
-            const org = data as Organization;
-            setOrganization(org);
-            if (org.company_config) {
-              setCompanyConfig({ ...DEFAULT_COMPANY_CONFIG, ...(org.company_config as any) });
-            }
+            applyOrg(data as Organization);
             setIsLoading(false);
             return;
           }
         }
 
-        // Fallback: no org, use defaults
         console.log('[Tenant] Dev mode or no tenant detected, using defaults');
         setIsLoading(false);
         return;
       }
 
-      // Fetch org by slug
       const { data, error: fetchError } = await (supabase as any)
         .from('organizations')
         .select('*')
@@ -135,12 +153,8 @@ export function useTenant() {
       }
 
       if (data) {
-        const org = data as Organization;
-        setOrganization(org);
-        if (org.company_config) {
-          setCompanyConfig({ ...DEFAULT_COMPANY_CONFIG, ...(org.company_config as any) });
-        }
-        console.log(`[Tenant] Loaded organization: ${org.name} (${org.slug})`);
+        applyOrg(data as Organization);
+        console.log(`[Tenant] Loaded organization: ${data.name} (${data.slug})`);
       }
     } catch (err: any) {
       console.error('[Tenant] Unexpected error:', err);
@@ -150,5 +164,5 @@ export function useTenant() {
     }
   };
 
-  return { organization, companyConfig, isLoading, error };
+  return { organization, companyConfig, isLoading, error, isImpersonating };
 }

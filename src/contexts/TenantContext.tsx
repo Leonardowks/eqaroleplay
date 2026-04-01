@@ -6,6 +6,7 @@ interface TenantContextType {
   companyConfig: CompanyConfig;
   isLoading: boolean;
   error: string | null;
+  isImpersonating: boolean;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
