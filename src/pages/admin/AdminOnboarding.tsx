@@ -464,8 +464,7 @@ const AdminOnboarding = () => {
 
       // Save branding
       if (data.app_name || data.logo_url || data.tagline) {
-        await (supabase as any)
-          .from('branding')
+        await untypedFrom('branding')
           .insert({
             company_name: data.company_name,
             app_name: data.app_name || data.company_name,

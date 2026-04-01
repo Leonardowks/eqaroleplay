@@ -107,7 +107,7 @@ export function useTenant() {
         return;
       }
 
-      const { data, error: fetchError } = await (supabase as any)
+      const { data, error: fetchError } = await supabase
         .from('organizations')
         .select('*')
         .eq('slug', slug)
