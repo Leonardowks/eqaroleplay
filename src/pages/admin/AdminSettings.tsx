@@ -44,8 +44,7 @@ const AdminSettings = () => {
     setLoading(true);
     try {
       // Load API configurations
-      const { data: apiData, error: apiError } = await (supabase as any)
-        .from('api_configurations')
+      const { data: apiData, error: apiError } = await untypedFrom('api_configurations')
         .select('*')
         .order('display_name');
 
