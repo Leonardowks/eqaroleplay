@@ -17,15 +17,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useTenantContext } from '@/contexts/TenantContext';
 
-interface Persona {
-  id: string;
-  name: string;
-  role: string;
-  company: string;
-  sector: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-  description: string;
-}
+import type { Persona } from '@/types';
 
 const Roleplay = () => {
   const navigate = useNavigate();
