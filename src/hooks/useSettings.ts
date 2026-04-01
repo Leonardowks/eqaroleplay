@@ -26,8 +26,7 @@ export function useSettings() {
   const loadSettings = async () => {
     try {
       // Load feature flags
-      const { data: flagsData, error: flagsError } = await (supabase as any)
-        .from('feature_flags')
+      const { data: flagsData, error: flagsError } = await untypedFrom('feature_flags')
         .select('feature_key, is_enabled');
 
       if (flagsError) {
