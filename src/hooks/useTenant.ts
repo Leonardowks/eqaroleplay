@@ -96,7 +96,7 @@ export function useTenant() {
             .single();
 
           if (data && !fetchError) {
-            applyOrg(data as Organization);
+            applyOrg(data as unknown as Organization);
             setIsLoading(false);
             return;
           }
