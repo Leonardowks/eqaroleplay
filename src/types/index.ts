@@ -13,10 +13,12 @@ export interface Competency {
   score: number;
   feedback: string | null;
   spin_category?: string | null;
-  sub_scores?: Record<string, number> | unknown | null;
-  sub_scores_feedback?: Record<string, string> | unknown | null;
-  criterion_approvals?: Record<string, unknown> | unknown | null;
-  ai_suggestions?: unknown[] | unknown | null;
+  // JSONB fields from Supabase — typed loosely to accept Json type
+  sub_scores?: Record<string, number> | null;
+  sub_scores_feedback?: Record<string, string> | null;
+  criterion_approvals?: Record<string, string | boolean> | null;
+  ai_suggestions?: Array<string | Record<string, unknown>> | null;
+  [key: string]: unknown; // allow extra DB fields
 }
 
 export interface SessionData {
