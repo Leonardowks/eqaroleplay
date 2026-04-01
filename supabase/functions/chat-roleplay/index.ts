@@ -25,7 +25,6 @@ interface CompanyConfig {
 }
 
 function buildSystemPrompt(config: CompanyConfig | null, persona: any, stage: string, method: string): string {
-  // Fallback to legacy prompt if no company config
   if (!config) {
     return buildLegacyPrompt(persona, stage, method);
   }
@@ -117,11 +116,11 @@ serve(async (req) => {
   }
 
   try {
-    const { message, personaId, sessionId, organization_id } = await req.json();
-    console.log('Received request:', { message, personaId, sessionId, organization_id });
+    const { message, personaId, sessionId, organization_id, is_preview, preview_history, meeting_type } = await req.json();
+    console.log('Received request:', { message, personaId, sessionId, organization_id, is_preview });
 
-    if (!message || !personaId || !sessionId) {
-      throw new Error('Missing required fields: message, personaId, or sessionId');
+    if (!message || !personaId) {
+      throw new Error('Missing required fields: message, personaId');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -135,6 +134,68 @@ serve(async (req) => {
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) throw new Error('Unauthorized');
+
+    // Preview mode: skip session validation and message persistence
+    if (is_preview) {
+      const [personaResult, orgResult] = await Promise.all([
+        supabase.from('personas').select('*').eq('id', personaId).single(),
+        organization_id
+          ? supabase.from('organizations').select('company_config').eq('id', organization_id).single()
+          : Promise.resolve({ data: null, error: null }),
+      ]);
+
+      if (personaResult.error || !personaResult.data) throw new Error('Persona not found');
+
+      const persona = personaResult.data;
+      const companyConfig = orgResult.data?.company_config as CompanyConfig | null;
+      const stage = meeting_type || 'Prospecção';
+      const systemPrompt = buildSystemPrompt(companyConfig, persona, stage, 'text');
+
+      const conversationHistory = (preview_history || []).map((m: any) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+      if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not configured.');
+
+      const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...conversationHistory,
+            { role: 'user', content: message },
+          ],
+          temperature: 0.8,
+          max_tokens: 500,
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error('AI API error:', aiResponse.status, errorText);
+        throw new Error('AI service error');
+      }
+
+      const aiData = await aiResponse.json();
+      const personaResponse = aiData.choices[0].message.content;
+
+      return new Response(
+        JSON.stringify({ response: personaResponse, personaName: persona.name }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Normal mode: require sessionId
+    if (!sessionId) {
+      throw new Error('Missing required field: sessionId');
+    }
 
     // Fetch persona, session, and optionally org config in parallel
     const [personaResult, sessionResult, orgResult] = await Promise.all([
