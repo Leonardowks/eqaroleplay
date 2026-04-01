@@ -91,8 +91,7 @@ const AdminSettings = () => {
     try {
       const newKey = editedKeys[provider];
 
-      const { error } = await (supabase as any)
-        .from('api_configurations')
+      const { error } = await untypedFrom('api_configurations')
         .update({
           api_key: newKey,
           is_active: newKey.length > 0,
