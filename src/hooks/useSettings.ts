@@ -99,7 +99,7 @@ export function useFeatureFlag(featureKey: string): boolean {
         if (error) {
           console.error(`Feature flag ${featureKey} not found:`, error);
         }
-        setIsEnabled((data as any)?.is_enabled ?? false);
+        setIsEnabled(data?.is_enabled ?? false);
       } catch (error) {
         console.error(`Error loading feature flag ${featureKey}:`, error);
         setIsEnabled(false);
