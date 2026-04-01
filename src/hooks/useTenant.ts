@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Organization, CompanyConfig } from '@/types';
 
-export interface ICPConfig {
-  buyer_role: string;
-  main_pains: string[];
-  common_objections: string[];
-  sophistication_level: 'iniciante' | 'intermediario' | 'avancado';
-}
+export type { Organization, CompanyConfig };
+export type { ICPConfig } from '@/types';
 
 export interface CompanyConfig {
   company_name: string;
