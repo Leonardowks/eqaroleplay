@@ -88,7 +88,7 @@ export function useTenant() {
 
       if (!slug) {
         if (hostname !== 'localhost' && !/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
-          const { data, error: fetchError } = await (supabase as any)
+          const { data, error: fetchError } = await supabase
             .from('organizations')
             .select('*')
             .eq('custom_domain', hostname)
