@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
+import SuperAdminRoute from "./components/SuperAdminRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { BrandingProvider } from "./contexts/BrandingContext";
 import { TenantProvider } from "./contexts/TenantContext";
